@@ -1,0 +1,871 @@
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+-----------------------------------------------bottom sheet back up------------------------
+i want to make my text inputs to function well, when i enter an address it must AUTO complete my locations using google maps
+import React, { useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { StyleSheet, Image, View, Text, Dimensions, TouchableOpacity } from 'react-native';
+import MapComponent from '../components/MapComponent';
+import { colors, parameters } from '../global/styles';
+import { rideData } from '../global/data';
+import { Avatar, Icon } from 'react-native-elements';
+import { DestinationContext, OriginContext } from '../contexts/contexts';
+import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import { GOOGLE_MAPS_APIKEY } from "@env";
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+export default function RequestScreen({ navigation, route }) {
+  const { origin, dispatchOrigin } = useContext(OriginContext);
+  const { destination, dispatchDestination } = useContext(DestinationContext);
+  const [setDestination] = useState(false)
+  const textInput1 = useRef(4)
+  const textInput2 = useRef(5)
+
+  const [userOrigin, setUserOrigin] = useState({
+    latitude: origin?.latitude || 0,
+    longitude: origin?.longitude || 0,
+  });
+  const [userDestination, setUserDestination] = useState({
+    latitude: destination?.latitude || 0,
+    longitude: destination?.longitude || 0,
+  });
+
+  const [isSheetOpen, setIsSheetOpen] = useState(true); // To track BottomSheet state
+  const index = route.params?.state ?? 0;
+  const snapPoints1 = useMemo(() => ['70%'], []);
+  const BottomSheet1 = useRef(null);
+
+  const handleSheetChange1 = useCallback(
+    (index) => {
+      if (index === -1) setIsSheetOpen(false); // If BottomSheet is fully closed
+    },
+    []
+  );
+
+  const handleArrowPress = () => {
+    BottomSheet1.current?.expand(); // Reopen BottomSheet
+    setIsSheetOpen(true);
+  };
+
+  useEffect(() => {
+    if (origin?.latitude && origin?.longitude) {
+      setUserOrigin({
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+      });
+    }
+    if (destination?.latitude && destination?.longitude) {
+      setUserDestination({
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      });
+    }
+
+    // Check if both Origin and Destination are set
+    if (origin?.latitude && origin?.longitude && destination?.latitude && destination?.longitude) {
+      setIsSheetOpen(false); // Close the BottomSheet
+    } else {
+      setIsSheetOpen(true); // Open the BottomSheet
+    }
+  }, [origin, destination]);
+
+
+  const renderFlatListItems = useCallback(
+    ({ item }) => (
+      <View>
+        <View style={styles.view10}>
+          <View style={styles.view11}>
+            <Icon type="material-community" name="clock-time-four" color={colors.white} size={18} />
+          </View>
+          <View>
+            <Text style={{ fontSize: 15, color: colors.grey1 }}>{item.street}</Text>
+            <Text style={{ color: colors.grey4 }}>{item.area}</Text>
+          </View>
+        </View>
+      </View>
+    ),
+    []
+  );
+
+  return (
+    <>
+      <View style={styles.container}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <View style={styles.view1}>
+            <Icon type="material-community" name="arrow-left" size={32} color={colors.grey1} />
+          </View>
+        </TouchableOpacity>
+        <View style={styles.view2}>
+          <TouchableOpacity>
+            <View style={styles.view3}>
+              <Avatar rounded size={30} source={require('../../assets/blankProfilePic.jpg')} />
+              <Text style={{ marginLeft: 5 }}>For Someone</Text>
+              <Icon type="material-community" name="chevron-down" size={26} color={colors.grey1} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.view4}>
+            <View>
+              <Image style={styles.image1} source={require('../../assets/transit.png')} />
+            </View>
+            <View>
+              <TouchableOpacity >
+                <View style={styles.view6}>
+                  {/* <Text style={styles.text1}>From where</Text> */}
+                  <GooglePlacesAutocomplete
+                    nearbyPlacesAPI='GooglePlacesSearch'
+                    placeholder="From..."
+                    listViewDisplayed="auto"
+                    debounce={400}
+                    currentLocation={true}
+                    ref={textInput1}
+                    minLength={2}
+                    enablePoweredByContainer={false}
+                    fetchDetails={true}
+                    autoFocus={true}
+                    styles={autoComplete}
+                    query={{
+                      key: GOOGLE_MAPS_APIKEY,
+                      language: "en"
+                    }}
+
+                    onPress={(data, details = null) => {
+                      dispatchOrigin({
+                        type: "ADD_ORIGIN", payload: {
+                          latitude: details.geometry.location.lat,
+                          longitude: details.geometry.location.lng,
+                          address: details.formatted_address,
+                          name: details.name
+                        }
+                      })
+
+                      setDestination(true)
+                    }}
+
+                  />
+                </View>
+              </TouchableOpacity>
+              <View style={styles.view7}>
+                <TouchableOpacity>
+                  <View style={styles.view5}>
+                    {/* <Text style={styles.text1}>Where to</Text> */}
+                    <GooglePlacesAutocomplete
+                      nearbyPlacesAPI='GooglePlacesSearch'
+                      placeholder="Going to..."
+                      listViewDisplayed="auto"
+                      debounce={400}
+                      currentLocation={true}
+                      ref={textInput2}
+                      minLength={2}
+                      enablePoweredByContainer={false}
+                      fetchDetails={true}
+                      autoFocus={true}
+                      styles={autoComplete}
+                      query={{
+                        key: GOOGLE_MAPS_APIKEY,
+                        language: "en"
+                      }}
+
+                      onPress={(data, details = null) => {
+                        dispatchDestination({
+                          type: "ADD_DESTINATION", payload: {
+                            latitude: details.geometry.location.lat,
+                            longitude: details.geometry.location.lng,
+                            address: details.formatted_address,
+                            name: details.name
+                          }
+                        })
+
+                        // setDestination(true)
+                      }}
+
+                    />
+                  </View>
+                </TouchableOpacity>
+                <View style={styles.view8}>
+                  <Icon type="material-community" name="plus-thinck" size={25} color={colors.black} />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <MapComponent userOrigin={userOrigin} userDestination={userDestination} />
+
+        <BottomSheet
+          ref={BottomSheet1}
+          index={index}
+          snapPoints={snapPoints1}
+          onChange={handleSheetChange1}
+          enablePanDownToClose={true}
+        >
+          <BottomSheetFlatList
+            keyboardShouldPersistTaps="always"
+            data={rideData}
+            keyExtractor={(item) => item.id}
+            renderItem={renderFlatListItems}
+            contentContainerStyle={styles.contentContainer}
+            ListHeaderComponent={
+              <View style={styles.view10}>
+                <View style={styles.view11}>
+                  <Icon type="material-community" name="star" color={colors.white} size={20} />
+                </View>
+                <View>
+                  <Text style={styles.text9}>Saved Places</Text>
+                </View>
+              </View>
+            }
+            ListFooterComponent={
+              <View>
+                <View style={styles.view10}>
+                  <View style={styles.view11}>
+                    <Icon type="material-community" name="map-marker" color={colors.white} size={20} />
+                  </View>
+                  <View>
+                    <Text style={styles.text9}>Set location on map</Text>
+                  </View>
+                </View>
+                <View style={styles.view10}>
+                  <View style={styles.view11}>
+                    <Icon type="material-community" name="skip-next" color={colors.white} size={20} />
+                  </View>
+                  <View>
+                    <Text style={styles.text9}>Enter destination later</Text>
+                  </View>
+                </View>
+              </View>
+            }
+          />
+        </BottomSheet>
+        {/* Upward Arrow Icon */}
+        {!isSheetOpen && (
+          <TouchableOpacity style={styles.arrowButton} onPress={handleArrowPress}>
+            <Icon type="material-community" name="arrow-up" size={30} color="white" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+    </>
+  );
+}
+
+
+const autoComplete = {
+
+  textInput: {
+    backgroundColor: colors.grey6,
+    height: 50,
+    borderRadius: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    fontSize: 15,
+    flex: 1,
+    borderWidth: 1,
+    marginHorizontal: 15,
+  },
+  container: {
+    paddingTop: 20,
+    flex: 1,
+    backgroundColor: colors.white
+  },
+
+  textInputContainer: {
+    flexDirection: 'row',
+  },
+
+}
+const styles = StyleSheet.create({
+  container1: {
+    flex: 1,
+    paddingTop: parameters.statusBarHeight,
+
+  },
+//////////////////////destination 
+import React, { useContext, useRef, useState } from 'react'
+import { StyleSheet, Text, View, Dimensions, TouchableOpacity, } from 'react-native';
+import { Avatar, Icon } from 'react-native-elements';
+import { colors, parameters } from '../global/styles'
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import { GOOGLE_MAPS_APIKEY } from "@env";
+import { DestinationContext, OriginContext } from '../contexts/contexts';
+
+// const SCREEN_HEIGHT = Dimensions.get('window').height;
+// const SCREEN_WIDTH = Dimensions.get('window').width;
+
+const DestinationScreen = ({navigation}) => {
+  const {dispatchOrigin} = useContext(OriginContext)
+  const {dispatchDestination} = useContext(DestinationContext)
+
+  const textInput1 = useRef(4)
+  const textInput2 = useRef(5)
+
+  const[destination,setDestination] = useState(false)
+  return (
+    <>
+      <View style={styles.view2}>
+        <View style={styles.view1}>
+          <Icon
+            type='material-community'
+            name="arrow-left"
+            size={32}
+            color={colors.grey1} 
+            onPress={()=>navigation.goBack()}/>
+        </View>
+        <TouchableOpacity>
+          <View style={{top:25, alignItems:"center"}}>
+            <View style={styles.view3}>
+              <Avatar
+                rounded
+                avatarStyle={{}}
+                size={30}
+                source={require('../../assets/blankProfilePic.jpg')}
+
+              />
+              <Text style={{ marginLeft: 5 }}>For Someone</Text>
+              <Icon
+                type='material-community'
+                name="chevron-down"
+                size={26}
+                color={colors.grey1} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+      {destination === false &&
+            <GooglePlacesAutocomplete 
+                nearbyPlacesAPI = 'GooglePlacesSearch'
+                placeholder ="From..."
+                listViewDisplayed = "auto"
+                debounce ={400}
+                currentLocation ={true}
+                ref ={textInput1}
+                minLength ={2}
+                enablePoweredByContainer = {false}
+                fetchDetails ={true}
+                autoFocus ={true}
+                styles = {autoComplete}
+                query ={{
+                    key:GOOGLE_MAPS_APIKEY,
+                    language:"en"
+                }}
+
+                onPress= {(data,details = null)=>{
+                    dispatchOrigin({type:"ADD_ORIGIN",payload:{
+                        latitude:details.geometry.location.lat,
+                        longitude:details.geometry.location.lng,
+                        address:details.formatted_address,
+                        name:details.name
+                    }})
+
+                    setDestination(true)
+                }}
+
+            />
+            }
+            {destination === true &&
+            <GooglePlacesAutocomplete 
+                nearbyPlacesAPI = 'GooglePlacesSearch'
+                placeholder ="Going to..."
+                listViewDisplayed = "auto"
+                debounce ={400}
+                currentLocation ={true}
+                ref ={textInput2}
+                minLength ={2}
+                enablePoweredByContainer = {false}
+                fetchDetails ={true}
+                autoFocus ={true}
+                styles = {autoComplete}
+                query ={{
+                    key:GOOGLE_MAPS_APIKEY,
+                    language:"en"
+                }}
+
+                onPress= {(data,details = null)=>{
+                    dispatchDestination({type:"ADD_DESTINATION",payload:{
+                        latitude:details.geometry.location.lat,
+                        longitude:details.geometry.location.lng,
+                        address:details.formatted_address,
+                        name:details.name
+                    }})
+
+                    navigation.navigate("RequestScreen",{state:0})
+                }}
+
+            />
+            }
+    </>
+  )
+}
+
+export default DestinationScreen;
+<TouchableOpacity
+style={styles.arrowButton}
+onPress={() => handleNavigation()}
+>
+<Icon type="material-community" name="arrow-up" size={30} color="white" />
+</TouchableOpacity>
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: parameters.statusBarHeight
+  },
+
+  view1: {
+    position: "absolute",
+    top: 25,
+    left: 12,
+    backgroundColor: colors.white,
+    height: 40,
+    width: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+    zIndex: 10
+
+  },
+
+  view3: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+    marginBottom: 10,
+    backgroundColor: colors.white,
+    height: 30,
+    zIndex: 10
+  },
+
+  view2: {
+    backgroundColor: colors.white,
+    zIndex: 4,
+    paddingBottom: 10,
+
+  },
+
+  view24: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 15,
+    paddingHorizontal: 20
+  },
+
+  view25: {
+    flexDirection: 'row',
+    alignItems: "baseline"
+  },
+
+  flatlist: {
+    marginTop: 20,
+    zIndex: 17,
+    elevation: 8
+  },
+
+});
+
+
+const autoComplete = {
+
+  textInput: {
+    backgroundColor: colors.grey6,
+    height: 50,
+    borderRadius: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    fontSize: 15,
+    flex: 1,
+    borderWidth: 1,
+    marginHorizontal: 15,
+  },
+  container: {
+    paddingTop: 20,
+    flex: 1,
+    backgroundColor: colors.white
+  },
+
+  textInputContainer: {
+    flexDirection: 'row',
+  },
+
+}
+
+
+
+
+import { BlurView } from 'expo-blur';
+import React, { useContext, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, SectionList, Image, Dimensions } from 'react-native';
+import { View, Text } from 'react-native-animatable';
+import { Icon } from 'react-native-elements';
+import { DestinationContext } from '../contexts/contexts';
+import { useSelector } from 'react-redux'; // Import useSelector
+import axios from 'axios'; // Import axios for API calls
+
+const { height } = Dimensions.get("window");
+
+const CarListingBottomSheet = ({ navigation }) => {
+  const { dispatchDestination } = useContext(DestinationContext);
+
+  // Accessing distance and duration from the Redux store
+  const distance = useSelector(state => state.location.distance);
+  const duration = useSelector(state => state.location.duration);
+
+  // State to store car data
+  const [carData, setCarData] = useState([]);
+
+  useEffect(() => {
+    // Fetching the required data from the backend
+    const fetchCarData = async () => {
+      try {
+        // Make a single API request to fetch all the consolidated car data
+        const response = await axios.get('http://10.0.2.2:3000/api/cars');
+        const fullCarData = response.data;
+
+        // Set the fetched data to the state
+        setCarData(fullCarData);
+
+        // Log the data for verification
+        console.log("Fetched Car Data:", fullCarData);
+
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchCarData();
+  }, []); // Empty dependency array to fetch data once when component mounts
+
+  useEffect(() => {
+    // Logging the distance and duration whenever they change
+    if (distance !== null && duration !== null) {
+      console.log('Distance:', distance, 'km');
+      console.log('Duration:', duration, 'mins');
+    }
+  }, [distance, duration]);
+
+  const handleItemPress = (item) => {
+    console.log('Car Type Selected:', item);
+    navigation.navigate('DriverDetailsBottomSheet', { id: item.driverId });
+  };
+
+  return (
+    <View style={styles.container}>
+      <Pressable onPress={() => navigation.goBack()} style={styles.overlay} />
+      <BlurView intensity={70} tint="light" style={styles.blurView}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.cancelContainer}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </Pressable>
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerText}>Choose Your Ride</Text>
+        </View>
+        <SectionList
+          sections={[{ title: 'Available Cars', data: carData }]} // Using carData as section data
+          keyExtractor={(item) => item.driverId.toString()}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={styles.sectionHeader}>{title}</Text>
+          )}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => handleItemPress(item)} style={styles.itemContainer}>
+              <Image source={{ uri: item.vehicleImage }} style={styles.carImage} />
+              <View style={styles.carInfo}>
+                <Text style={styles.carName}>{item.vehicleName} </Text>
+                <Text style={styles.carNote}>Cost per km: R{item.vehicleCostPerKm * distance}</Text>
+                <View style={styles.promotionContainer}>
+                  <Text style={styles.carName}>{item.userName}</Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
+        />
+      </BlurView>
+    </View>
+  );
+};
+
+export default CarListingBottomSheet;
+
+
+import { BlurView } from 'expo-blur';
+import React, { useContext, useEffect } from 'react';
+import { Pressable, StyleSheet, SectionList, Image, Dimensions } from 'react-native';
+import { View, Text } from 'react-native-animatable';
+import { Icon } from 'react-native-elements';
+import { DestinationContext } from '../contexts/contexts';
+import { carTypeData } from '../global/data';
+
+const { height } = Dimensions.get("window");
+
+const CarListingBottomSheet = ({ navigation }) => {
+  const { dispatchDestination } = useContext(DestinationContext);
+
+  // Accessing distance and duration from the Redux store
+  const distance = useSelector(state => state.location.distance);
+  const duration = useSelector(state => state.location.duration);
+
+  // State to store car data
+  const [carData, setCarData] = useState([]);
+
+  useEffect(() => {
+    // Fetching the required data from the backend
+    const fetchCarData = async () => {
+      try {
+        // Make a single API request to fetch all the consolidated car data
+        const response = await axios.get('http://10.0.2.2:3000/api/cars');
+        const fullCarData = response.data;
+
+        // Set the fetched data to the state
+        setCarData(fullCarData);
+
+        // Log the data for verification
+        console.log("Fetched Car Data:", fullCarData);
+
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchCarData();
+  }, []); // Empty dependency array to fetch data once when component mounts
+
+  useEffect(() => {
+    // Logging the distance and duration whenever they change
+    if (distance !== null && duration !== null) {
+      console.log('Distance:', distance, 'km');
+      console.log('Duration:', duration, 'mins');
+    }
+  }, [distance, duration]);
+
+  const handleItemPress = (item) => {
+    console.log('Car Type Selected:', item);
+    navigation.navigate('DriverDetailsBottomSheet', { id: item.driverId });
+  };
+  return (
+    <View style={styles.container}>
+      <Pressable onPress={() => navigation.goBack()} style={styles.overlay} />
+      <BlurView intensity={70} tint="light" style={styles.blurView}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.cancelContainer}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </Pressable>
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerText}>Choose Your Ride</Text>
+        </View>
+        <SectionList
+          sections={carTypeData}
+          keyExtractor={(item) => item.id}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={styles.sectionHeader}>{title}</Text>
+          )}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => handleItemPress(item)} style={styles.itemContainer}>
+              <Image source={item.image} style={styles.carImage} />
+              <View style={styles.carInfo}>
+                <Text style={styles.carName}>{item.name}</Text>
+                <Text style={styles.carNote}>{item.note}</Text>
+                <View style={styles.promotionContainer}>
+                  <View style={styles.iconTextRow}>
+                    <Icon
+                      name="account"
+                      type="material-community"
+                      size={16}
+                      color="gray"
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text style={styles.promotionText}>{item.seats}</Text>
+                  </View>
+                  <Text style={styles.carPrice}>R{item.price}</Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
+        />
+      </BlurView>
+    </View>
+  );
+};
+
+export default CarListingBottomSheet;
+
+189518776
+
+import React, { useContext, useEffect, useState } from 'react';
+import { StyleSheet, Text, View, Dimensions, TouchableOpacity, Image, TouchableWithoutFeedback, BackHandler } from 'react-native';
+import { Icon } from 'react-native-elements';
+import { colors } from '../global/styles';
+import { DestinationContext, OriginContext } from '../contexts/contexts';
+import { DriverOriginContext } from '../contexts/driverContexts';
+import MapComponent from '../components/MapComponent';
+import axios from 'axios';
+import { GOOGLE_MAPS_APIKEY } from "@env";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import CustomDrawer from '../components/CustomDrawer';
+import { useSelector } from 'react-redux';
+import { db, doc } from '../../FirebaseConfig';
+import { onSnapshot } from 'firebase/firestore';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+const DestinationScreen = ({ navigation, route }) => {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const tripData = useSelector(state => state.trip?.tripData); // Added optional chaining
+
+  // Safely access route params with default values
+  const { 
+    durationReached = false, 
+    tripAccepted = false, 
+    paymentConfirmed = false 
+  } = route.params || {};
+
+  const toggleDrawer = () => setDrawerOpen(!drawerOpen);
+
+  // Context with default values
+  const { originDriver = {} } = useContext(DriverOriginContext);
+  const { origin = {} } = useContext(OriginContext);
+  const { destination = {} } = useContext(DestinationContext);
+
+  // State initialization with fallbacks
+  const [userOrigin] = useState({
+    latitude: origin?.latitude || null,
+    longitude: origin?.longitude || null,
+  });
+
+  const [driverLocation] = useState({   
+    latitude: originDriver?.latitude || null,
+    longitude: originDriver?.longitude || null,
+  });
+
+  const [eta, setEta] = useState(null);
+  const [distance, setDistance] = useState(null);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => true
+    );
+    return () => backHandler.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!tripAccepted || !paymentConfirmed) {
+      navigation.navigate('TripLoadingResponse', { durationReacheds: false });
+    }
+  }, [tripAccepted, paymentConfirmed, navigation]);
+
+  useEffect(() => {
+    const fetchRouteDetails = async () => {
+      try {
+        if (!userOrigin.latitude || !driverLocation.latitude) return;
+
+        const response = await axios.get(
+          `https://maps.googleapis.com/maps/api/directions/json`,
+          {
+            params: {
+              origin: `${userOrigin.latitude},${userOrigin.longitude}`,
+              destination: `${driverLocation.latitude},${driverLocation.longitude}`,
+              key: GOOGLE_MAPS_APIKEY,
+            },
+          }
+        );
+
+        const firstRoute = response.data?.routes?.[0];
+        const firstLeg = firstRoute?.legs?.[0];
+        
+        if (firstLeg) {
+          setEta(firstLeg.duration?.text || 'N/A');
+          setDistance(firstLeg.distance?.text || 'N/A');
+        }
+      } catch (error) {
+        console.error("Error fetching route details:", error);
+      }
+    };
+
+    fetchRouteDetails();
+  }, [userOrigin, driverLocation]);
+
+  const handleNavigation = () => {
+    if (destination?.latitude && destination?.longitude && tripData) {
+      navigation.navigate('DriverInfoBottomSheet', {
+        durationReacheds: true,
+        driver_id: tripData?.driver_id, // Optional chaining
+        tripAccepted: tripData?.tripAccepted, // Optional chaining
+      });
+    }
+  };
+  useEffect(() => {
+    // Ensure tripId is a string
+    const tripId = tripData?.tripId ? String(tripData.tripId) : null; // Convert tripId to string if it exists
+
+    // Check if durationReached is true and tripId exists and is a string
+    if (!durationReached || !tripId) {
+      console.log("Invalid tripId or waiting for status updates.", tripData?.tripId);
+      return; // Don't proceed if tripId is invalid or doesn't exist
+    }
+
+    console.log("Trip started, listening for status changes...");
+
+    // Now that we've validated that tripId is a string, use it in doc()
+    const tripRef = doc(db, "trips", tripId);
+
+    const unsubscribe = onSnapshot(tripRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const tripStatus = docSnapshot.data()?.statuses;
+
+        // Check if the trip status is "accepted"
+        if (tripStatus === "accepted") {
+          console.log("Trip accepted.");
+          alert("Your trip has been accepted!"); // Alert the user when trip status is accepted
+        } else if (tripStatus === "trip started") {
+          console.log("Trip has started. Waiting for further status updates...");
+        } else {
+          console.log("Current trip status:", tripStatus);
+        }
+      } else {
+        console.log("Trip document not found.");
+      }
+    });
+
+    // Cleanup the listener when component unmounts or tripId/durationReached changes
+    return () => unsubscribe();
+  }, [tripData?.tripId, durationReached]); // Re-run when tripId or durationReached changes
+
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <TouchableWithoutFeedback onPress={() => drawerOpen && setDrawerOpen(false)}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={toggleDrawer} style={styles.roundButton}>
+              <Icon type="material-community" name="menu" color={colors.black} size={30} />
+            </TouchableOpacity>
+          </View>
+
+          {drawerOpen && <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />}
+
+          <TouchableOpacity
+            style={styles.profilePictureContainer}
+            onPress={() => navigation.navigate('DriverCommunicationBottomSheet')}
+          >
+            <Image source={require('../../assets/call.png')} style={styles.profilePicture} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.rectangleButton} onPress={handleNavigation}>
+            <Text style={styles.buttonText}>View Driver</Text>
+          </TouchableOpacity>
+
+          {tripData?.driver_id && ( // Conditional rendering
+            <MapComponent 
+              driverLocation={driverLocation}
+              driverId={tripData.driver_id}
+              userOrigin={tripAccepted ? userOrigin : null}
+            />
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
+  );
+};
+
+export default DestinationScreen;
