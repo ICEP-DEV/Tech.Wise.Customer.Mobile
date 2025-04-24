@@ -212,6 +212,7 @@ const DestinationScreen = ({ navigation, route }) => {
     // customer payments
     if (tripStatusAccepted === 'on-going' && driver_id) {
       console.log('payment processing...');
+      
     }
   }, [tripStatusAccepted]);
 
