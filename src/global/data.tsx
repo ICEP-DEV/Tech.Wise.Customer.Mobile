@@ -1,5 +1,5 @@
 export const filterData = [
-        { name: "Ride", image: require('../../assets/ride.png'), id: "0" },
+        { name: "NthomeRide", image: require('../../assets/ride.png'), id: "0" },
         { name: "NthomeFood", image: require("../../assets/food.png"), id: "1" },
         { name: "NthomeAir", image: require("../../assets/package1.png"), id: "2" },
         // { name: "NthomeFood", image: require("../../assets/reserve.png"), id: "3" }

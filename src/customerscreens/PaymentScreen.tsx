@@ -1,166 +1,322 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
-import { Icon } from 'react-native-elements';
-import { colors, parameters } from '../global/styles';
+"use client"
 
-const PaymentScreen = ({ navigation }) => {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+import { useEffect, useState } from "react"
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
+} from "react-native"
+import { Icon } from "react-native-elements"
+import { WebView } from "react-native-webview"
+import axios from "axios"
+import { PAYSTACK_PUBLIC_KEY } from "@env"
+import { api } from "../../api"
+import { LinearGradient } from "expo-linear-gradient"
 
-  const paymentMethods = [
-    { id: '1', name: 'Credit Card', cardNumber: '2148642115648' },
-    { id: '2', name: 'Cash' },
-  ];
+const PaymentScreen = ({ navigation, route }) => {
+  const {
+    customerCode,
+    tripAmount,
+    userEmail,
+    tripId,
+    userId,
+    driverName,
+    tripDistance,
+    tripDuration,
+  } = route.params || {}
 
-  const maskCardNumber = (cardNumber) => {
-    if (!cardNumber) return '';
-    return `**** **** **** ${cardNumber.slice(-4)}`;
-  };
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const handlePayment = () => {
-    if (selectedPaymentMethod) {
-      Alert.alert(
-        'Payment Confirmation',
-        `You have selected ${selectedPaymentMethod}. Proceeding with payment...`
-      );
-      // Implement actual payment logic here
+  useEffect(() => {
+    // Validate required data
+    if (!customerCode || !tripAmount || tripAmount <= 0) {
+      setError("Invalid payment information. Please try again.")
+      setIsLoading(false)
     } else {
-      Alert.alert('Error', 'Please select a payment method.');
+      // Short timeout to show loading state
+      const timer = setTimeout(() => {
+        setIsLoading(false)
+      }, 1000)
+      return () => clearTimeout(timer)
     }
-  };
+  }, [customerCode, tripAmount])
+
+  const handlePaymentSuccess = async (res) => {
+    console.log("Payment successful", res)
+
+    try {
+      await axios.post(`${api}trips/${tripId}/payment`, {
+        payment_reference: res.reference,
+        amount: tripAmount / 100,
+        status: "success",
+        user_id: userId,
+      })
+
+      // Navigate back to destination screen with success status
+      navigation.navigate("DestinationScreen", {
+        paymentStatus: "success",
+        paymentReference: res.reference
+      })
+    } catch (error) {
+      console.error("Error recording payment:", error)
+      // Still navigate back but with error status
+      navigation.navigate("DestinationScreen", {
+        paymentStatus: "error",
+        paymentError: "Failed to record payment"
+      })
+    }
+  }
+
+  const handlePaymentCancel = (e) => {
+    console.log("Payment cancelled", e)
+    // Navigate back to destination screen with cancelled status
+    navigation.navigate("DestinationScreen", { paymentStatus: "cancelled" })
+  }
+
+  const handleGoBack = () => {
+    navigation.navigate("DestinationScreen", { paymentStatus: "cancelled" })
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0DCAF0" />
+        <LinearGradient colors={["#0DCAF0", "#0AA8CD"]} style={styles.header}>
+          <Text style={styles.headerTitle}>Payment</Text>
+        </LinearGradient>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0DCAF0" />
+          <Text style={styles.loadingText}>Preparing payment...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0DCAF0" />
+        <LinearGradient colors={["#0DCAF0", "#0AA8CD"]} style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+            <Icon name="arrow-back" type="material" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Payment</Text>
+          <View style={styles.placeholder} />
+        </LinearGradient>
+        <View style={styles.errorContainer}>
+          <Icon name="error-outline" type="material" size={60} color="#EF4444" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleGoBack}>
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.view1}>
-        <Icon
-          type="material-community"
-          name="arrow-left"
-          color={colors.grey1}
-          size={32}
-          onPress={() => navigation.goBack()}
-        />
-      </View>
-      <Text style={styles.headerText}>Choose Payment Method</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0DCAF0" />
 
-      {/* Payment Card */}
-      <View style={styles.paymentCard}>
-        <Text style={styles.cardTitle}>Selected Payment Method</Text>
-        <Text style={styles.cardMethod}>
-          {selectedPaymentMethod ? selectedPaymentMethod : 'None'}
-        </Text>
+      <LinearGradient colors={["#0DCAF0", "#0AA8CD"]} style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+          <Icon name="arrow-back" type="material" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Payment</Text>
+        <View style={styles.placeholder} />
+      </LinearGradient>
+
+      <View style={styles.paymentDetailsContainer}>
+        <Text style={styles.paymentTitle}>Trip Payment</Text>
+
+        <View style={styles.amountContainer}>
+          <Text style={styles.amountLabel}>Amount:</Text>
+          <Text style={styles.amountValue}>₦{tripAmount / 100}</Text>
+        </View>
+
+        {tripDistance && (
+          <View style={styles.detailRow}>
+            <Icon name="straighten" type="material" size={20} color="#0DCAF0" />
+            <Text style={styles.detailLabel}>Distance:</Text>
+            <Text style={styles.detailValue}>{tripDistance}</Text>
+          </View>
+        )}
+
+        {tripDuration && (
+          <View style={styles.detailRow}>
+            <Icon name="access-time" type="material" size={20} color="#0DCAF0" />
+            <Text style={styles.detailLabel}>Duration:</Text>
+            <Text style={styles.detailValue}>{tripDuration}</Text>
+          </View>
+        )}
+
+        {driverName && (
+          <View style={styles.detailRow}>
+            <Icon name="person" type="material" size={20} color="#0DCAF0" />
+            <Text style={styles.detailLabel}>Driver:</Text>
+            <Text style={styles.detailValue}>{driverName}</Text>
+          </View>
+        )}
       </View>
 
-      {/* Payment Methods */}
-      <View style={styles.paymentContainer}>
-        {paymentMethods.map((method) => (
-          <TouchableOpacity
-            key={method.id}
-            style={[
-              styles.paymentOption,
-              selectedPaymentMethod === method.name ||
-              selectedPaymentMethod === maskCardNumber(method.cardNumber)
-                ? styles.selectedOption
-                : null,
-            ]}
-            onPress={() =>
-              setSelectedPaymentMethod(
-                method.name === 'Credit Card'
-                  ? maskCardNumber(method.cardNumber)
-                  : method.name
-              )
+      <View style={styles.paystackContainer}>
+        <WebView
+          source={{
+            uri: `https://paystack.com/pay/YOUR_CUSTOM_PAYMENT_PAGE`, // or generate via backend
+          }}
+          onNavigationStateChange={(navState) => {
+            if (navState.url.includes("payment/success")) {
+              handlePaymentSuccess({ reference: "from-url-or-query" })
+            } else if (navState.url.includes("payment/cancel")) {
+              handlePaymentCancel()
             }
-          >
-            <Text style={styles.paymentText}>
-              {method.name === 'Credit Card'
-                ? maskCardNumber(method.cardNumber)
-                : method.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
+          }}
+          startInLoadingState
+          javaScriptEnabled
+          style={{ flex: 1 }}
+        />
+
+
       </View>
-
-      {/* Payment Button */}
-      <TouchableOpacity style={styles.paymentButton} onPress={handlePayment}>
-        <Text style={styles.buttonText}>Confirm Payment</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-export default PaymentScreen;
+    </SafeAreaView>
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: parameters.statusBarHeight,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#FFFFFF",
   },
-  view1: {
-    position: 'absolute',
-    top: 25,
-    left: 12,
-    backgroundColor: colors.white,
-    height: 40,
-    width: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 25,
-    zIndex: 8,
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.grey1,
-    marginVertical: 20,
-    textAlign: 'center',
-  },
-  paymentCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 10,
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    elevation: 5,
-    marginBottom: 20,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  cardMethod: {
-    fontSize: 16,
-    color: '#6c757d',
-    marginTop: 10,
-  },
-  paymentContainer: {
-    marginVertical: 20,
-  },
-  paymentOption: {
-    paddingVertical: 15,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
     paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: colors.grey2,
-    borderRadius: 8,
-    marginBottom: 10,
   },
-  selectedOption: {
-    backgroundColor: colors.green1, // Highlight selected option
-    borderColor: colors.green1,
-  },
-  paymentText: {
+  headerTitle: {
     fontSize: 18,
-    color: colors.grey1,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
-  paymentButton: {
-    backgroundColor: '#007aff',
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  placeholder: {
+    width: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#64748B",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#EF4444",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: "#0DCAF0",
     paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 12,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  paymentDetailsContainer: {
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    margin: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  paymentTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  amountContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  amountLabel: {
     fontSize: 18,
+    color: "#64748B",
+    marginRight: 8,
   },
-});
+  amountValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#0DCAF0",
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: "#64748B",
+    marginLeft: 8,
+    width: 70,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#1E293B",
+    flex: 1,
+  },
+  paystackContainer: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+})
+
+export default PaymentScreen

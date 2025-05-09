@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react"
+"use client"
+
+import { useState, useEffect, useCallback, memo } from "react"
 import {
   View,
   Text,
@@ -8,34 +10,160 @@ import {
   StyleSheet,
   StatusBar,
   TextInput,
-  Modal,
   ActivityIndicator,
   Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Icon } from "react-native-elements"
 import * as ImagePicker from "expo-image-picker"
-import { LinearGradient } from "expo-linear-gradient"
 import { api } from "../../api"
 import axios from "axios"
 import { useSelector } from "react-redux"
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../firebase'; // Firebase Storage Import
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"
+import { storage } from "../../firebase"
+import CustomDrawer from "../components/CustomDrawer"
+
+// Memoized components to prevent unnecessary re-renders
+const ProfileHeader = memo(({ customerData, uploadingImage, pickImage, formData, isProfileComplete }) => (
+  <View style={styles.profileHeader}>
+    <View style={styles.profileImageContainer}>
+      {uploadingImage ? (
+        <View style={styles.uploadingContainer}>
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        </View>
+      ) : (
+        <Image
+          source={
+            customerData?.profile_picture
+              ? { uri: customerData.profile_picture }
+              : require("../../assets/placeholder.jpg")
+          }
+          style={styles.profileImage}
+        />
+      )}
+
+      <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
+        <Icon name="camera-alt" type="material" size={18} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      <View style={styles.statusBadge}>
+        <Text style={styles.statusText}>Active</Text>
+      </View>
+    </View>
+
+    <Text style={styles.profileName}>
+      {customerData?.name} {customerData?.lastName}
+    </Text>
+
+    <View style={styles.contactInfo}>
+      <View style={styles.contactItem}>
+        <Icon name="email" type="material" size={18} color="#FFFFFF" style={styles.contactIcon} />
+        <Text style={styles.contactText}>{customerData?.email}</Text>
+      </View>
+      <View style={styles.contactItem}>
+        <Icon name="phone" type="material" size={18} color="#FFFFFF" style={styles.contactIcon} />
+        <Text style={styles.contactText}>{customerData?.phoneNumber || "Not provided"}</Text>
+      </View>
+    </View>
+
+    <View style={styles.completenessContainer}>
+      <Text style={styles.completenessTitle}>Profile Completeness</Text>
+      <View style={styles.progressBarContainer}>
+        <View
+          style={[
+            styles.progressBar,
+            {
+              width: `${isProfileComplete().complete
+                  ? 100
+                  : Math.max(
+                    25,
+                    Object.values({
+                      name: formData.name,
+                      lastName: formData.lastName,
+                      email: formData.email,
+                      phoneNumber: formData.phoneNumber,
+                    }).filter(Boolean).length * 25,
+                  )
+                }%`,
+            },
+          ]}
+        />
+      </View>
+      {!isProfileComplete().complete && (
+        <Text style={styles.completenessWarning}>
+          Please complete your personal information to enable payment processing
+        </Text>
+      )}
+    </View>
+  </View>
+))
+
+const InfoRow = memo(({ label, value }) => (
+  <View style={styles.infoRow}>
+    <Text style={styles.infoLabel}>{label}:</Text>
+    <Text style={styles.infoValue}>{value || "Not provided"}</Text>
+  </View>
+))
+
+const FormGroup = memo(({ label, value, onChangeText, placeholder, keyboardType, multiline, autoCapitalize }) => (
+  <View style={styles.formGroup}>
+    <Text style={styles.formLabel}>{label}</Text>
+    <TextInput
+      style={[styles.formInput, multiline && { minHeight: 80 }]}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      keyboardType={keyboardType}
+      multiline={multiline}
+      autoCapitalize={autoCapitalize}
+    />
+  </View>
+))
+
+const GenderSelector = memo(({ selectedGender, onSelect }) => (
+  <View style={styles.genderOptions}>
+    {["Male", "Female", "Other"].map((gender) => (
+      <TouchableOpacity
+        key={gender}
+        style={[styles.genderOption, selectedGender === gender && styles.selectedGenderOption]}
+        onPress={() => onSelect(gender)}
+      >
+        <Text style={[styles.genderOptionText, selectedGender === gender && styles.selectedGenderOptionText]}>
+          {gender}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+))
+
+const CardButton = memo(({ title, onPress, disabled }) => (
+  <TouchableOpacity
+    style={[styles.cardButton, disabled && styles.disabledButton]}
+    onPress={onPress}
+    disabled={disabled}
+  >
+    <Text style={styles.cardButtonText}>{title}</Text>
+    <Icon name="chevron-right" type="material" size={16} color="#FFFFFF" />
+  </TouchableOpacity>
+))
 
 const CustomerProfile = ({ navigation }) => {
   const [customerData, setCustomerData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editMode, setEditMode] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [selectedField, setSelectedField] = useState(null)
-  const [fieldValue, setFieldValue] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [totalCompletedTrips, setTotalCompletedTrips] = useState(0)
+  const [customerCode, setCustomerCode] = useState(null)
 
+  const toggleDrawer = useCallback(() => setDrawerOpen((prev) => !prev), [])
   const user = useSelector((state) => state.auth?.user)
   const user_id = user?.user_id
   const username = user?.name
+
   // Form fields for editing
   const [formData, setFormData] = useState({
     name: "",
@@ -56,6 +184,11 @@ const CustomerProfile = ({ navigation }) => {
       try {
         const res = await axios.get(api + `customer/${user_id}`)
         setCustomerData(res.data)
+
+        // Check if customer code exists
+        if (res.data.customer_code) {
+          setCustomerCode(res.data.customer_code)
+        }
 
         // Initialize form data with fetched data
         setFormData({
@@ -78,8 +211,26 @@ const CustomerProfile = ({ navigation }) => {
     fetchCustomer()
   }, [user_id])
 
+  // Fetch total trip history
+  useEffect(() => {
+    if (!user_id) return
+
+    const fetchTrips = async () => {
+      try {
+        const res = await axios.get(api + `tripHistory/${user_id}`, {
+          params: { status: "completed" },
+        })
+        setTotalCompletedTrips(res.data.length)
+      } catch (err) {
+        console.error("Error fetching trips:", err)
+      }
+    }
+
+    fetchTrips()
+  }, [user_id])
+
   // Handle image picking
-  const pickImage = async () => {
+  const pickImage = useCallback(async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 
@@ -89,7 +240,7 @@ const CustomerProfile = ({ navigation }) => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Fixed: Use MediaTypeOptions.Images instead of MediaType.IMAGE
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
@@ -102,131 +253,179 @@ const CustomerProfile = ({ navigation }) => {
       console.error("Error picking image:", error)
       Alert.alert("Error", "Failed to pick image. Please try again.")
     }
-  }
+  }, [user_id, username])
 
   // Upload profile image
-  const uploadProfileImage = async (imageUri) => {
-    try {
-      setUploadingImage(true)
-  
-      const filename = imageUri.split('/').pop()
-      const match = /\.(\w+)$/.exec(filename)
-      const ext = match ? match[1] : 'jpg'
-      const type = match ? `image/${ext}` : 'image/jpeg'
-  
-      const folderPath = `profile_pictures/${username}_${user_id}`
-      const storageRef = ref(storage, `${folderPath}/${filename}`)
-  
-      const response = await fetch(imageUri)
-      const blob = await response.blob()
-  
-      const uploadTask = uploadBytesResumable(storageRef, blob)
-  
-      uploadTask.on(
-        'state_changed',
-        null,
-        (error) => {
-          console.error("Upload error:", error)
-          Alert.alert("Error", "Failed to upload profile picture.")
-          setUploadingImage(false)
-        },
-        async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref)
-  
-          const res = await axios.post(`${api}update-profile-picture`, {
-            profile_picture: downloadURL,
-            user_id,
-          })
-  
-          if (res.status === 200) {
-            setCustomerData((prev) => ({
-              ...prev,
-              profile_picture: downloadURL,
-            }))
-            Alert.alert("Success", "Profile picture updated successfully!")
-          } else {
-            Alert.alert("Error", "Failed to update profile picture in database.")
-          }
-  
-          setUploadingImage(false)
-        }
-      )
-    } catch (error) {
-      console.error("Upload error:", error)
-      Alert.alert("Error", "Something went wrong.")
-      setUploadingImage(false)
-    }
-  }
-  // Open edit modal for a specific field
-  const handleEdit = (field, value) => {
-    setSelectedField(field)
-    setFieldValue(value)
-    setShowEditModal(true)
-  }
+  const uploadProfileImage = useCallback(
+    async (imageUri) => {
+      try {
+        setUploadingImage(true)
 
-  // Save edited field
-  const saveField = async () => {
-    if (!selectedField || !fieldValue.trim()) {
-      Alert.alert("Error", "Please enter a valid value.")
+        const filename = imageUri.split("/").pop()
+        const match = /\.(\w+)$/.exec(filename)
+        const ext = match ? match[1] : "jpg"
+
+        const folderPath = `profile_pictures/${username}_${user_id}`
+        const storageRef = ref(storage, `${folderPath}/${filename}`)
+
+        const response = await fetch(imageUri)
+        const blob = await response.blob()
+
+        const uploadTask = uploadBytesResumable(storageRef, blob)
+
+        uploadTask.on(
+          "state_changed",
+          null,
+          (error) => {
+            console.error("Upload error:", error)
+            Alert.alert("Error", "Failed to upload profile picture.")
+            setUploadingImage(false)
+          },
+          async () => {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref)
+
+            const res = await axios.post(`${api}update-profile-picture`, {
+              profile_picture: downloadURL,
+              user_id,
+            })
+
+            if (res.status === 200) {
+              setCustomerData((prev) => ({
+                ...prev,
+                profile_picture: downloadURL,
+              }))
+              Alert.alert("Success", "Profile picture updated successfully!")
+            } else {
+              Alert.alert("Error", "Failed to update profile picture in database.")
+            }
+
+            setUploadingImage(false)
+          },
+        )
+      } catch (error) {
+        console.error("Upload error:", error)
+        Alert.alert("Error", "Something went wrong.")
+        setUploadingImage(false)
+      }
+    },
+    [user_id, username],
+  )
+
+  // Toggle edit mode
+  const toggleEditMode = useCallback(() => {
+    if (editMode) {
+      // If exiting edit mode without saving, reset form data to original values
+      setFormData({
+        name: customerData?.name || "",
+        lastName: customerData?.lastName || "",
+        email: customerData?.email || "",
+        phoneNumber: customerData?.phoneNumber || "",
+        address: customerData?.address || "",
+        current_address: customerData?.current_address || "",
+        gender: customerData?.gender || "",
+      })
+    }
+    setEditMode(!editMode)
+  }, [editMode, customerData])
+
+  // Function to check if profile is complete
+  const isProfileComplete = useCallback(() => {
+    const requiredFields = {
+      "First Name": formData.name,
+      "Last Name": formData.lastName,
+      Email: formData.email,
+      "Phone Number": formData.phoneNumber,
+    }
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([_, value]) => !value || value.trim() === "")
+      .map(([key]) => key)
+
+    return { complete: missingFields.length === 0, missingFields }
+  }, [formData])
+
+  // Function to handle customer creation in Paystack
+  const handleCustomerCreation = useCallback(async () => {
+    if (!formData.email || !formData.name || !formData.lastName || !formData.phoneNumber) {
+      Alert.alert("Error", "Please complete the form before creating the customer.")
+      return null
+    }
+
+    const payload = {
+      email: formData.email,
+      first_name: formData.name,
+      last_name: formData.lastName,
+      phone: formData.phoneNumber,
+      user_id: user_id,
+    }
+
+    try {
+      const response = await axios.post(api + "create-customer", payload)
+
+      if (response.status === 200) {
+        const customerData = response.data.data
+        return customerData?.customer_code
+      } else {
+        console.error("Error creating customer:", response.data)
+        return null
+      }
+    } catch (error) {
+      console.error("Error creating customer:", error.response?.data || error)
+      return null
+    }
+  }, [formData, user_id])
+
+  // Save all profile changes and create customer if profile is complete
+  const saveAllChanges = useCallback(async () => {
+    // Validate personal and address information
+    const requiredFields = {
+      "First Name": formData.name,
+      "Last Name": formData.lastName,
+      Email: formData.email,
+      "Phone Number": formData.phoneNumber,
+      Address: formData.address,
+      "Current Address": formData.current_address,
+    }
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([_, value]) => !value || value.trim() === "")
+      .map(([key]) => key)
+
+    if (missingFields.length > 0) {
+      Alert.alert(
+        "Incomplete Information",
+        `Please fill the following fields before saving:\n\n${missingFields.join("\n")}`,
+      )
       return
     }
 
     setIsSaving(true)
     try {
-      const updateData = {
-        [selectedField]: fieldValue,
-        user_id,
+      // Step 1: Create the customer and get the customer_code
+      const newCustomerCode = await handleCustomerCreation()
+
+      if (!newCustomerCode) {
+        Alert.alert("Error", "Failed to create payment profile. Please try again.")
+        setIsSaving(false)
+        return
       }
 
-      const response = await axios.put(api + "update-customer", updateData)
-
-      if (response.status === 200) {
-        // Update local state
-        setCustomerData((prev) => ({
-          ...prev,
-          [selectedField]: fieldValue,
-        }))
-
-        // Update form data
-        setFormData((prev) => ({
-          ...prev,
-          [selectedField]: fieldValue,
-        }))
-
-        setShowEditModal(false)
-        Alert.alert("Success", "Profile updated successfully!")
-      } else {
-        Alert.alert("Error", "Failed to update profile.")
-      }
-    } catch (error) {
-      console.error("Error updating profile:", error)
-      Alert.alert("Error", "Failed to update profile. Please try again.")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // Toggle edit mode
-  const toggleEditMode = () => {
-    setEditMode(!editMode)
-  }
-
-  // Save all profile changes
-  const saveAllChanges = async () => {
-    setIsSaving(true)
-    try {
+      // Step 2: Update the customer profile
       const response = await axios.put(api + "update-customer", {
         ...formData,
         user_id,
+        customer_code: newCustomerCode,
       })
 
       if (response.status === 200) {
         setCustomerData((prev) => ({
           ...prev,
           ...formData,
+          customer_code: newCustomerCode,
         }))
-        setEditMode(false)
+
         Alert.alert("Success", "Profile updated successfully!")
+        setEditMode(false)
       } else {
         Alert.alert("Error", "Failed to update profile.")
       }
@@ -236,53 +435,16 @@ const CustomerProfile = ({ navigation }) => {
     } finally {
       setIsSaving(false)
     }
-  }
+  }, [formData, user_id, handleCustomerCreation])
 
   // Handle form input changes
-  const handleInputChange = (field, value) => {
+  const handleInputChange = useCallback((field, value) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }))
-  }
+  }, [])
 
-  // Get profile image source
-  const getProfileImageSource = () => {
-    if (customerData?.profile_picture) {
-      return { uri: customerData?.profile_picture }
-    }
-    return require("../../assets/placeholder.jpg") // Fallback image
-  }
-  const [trips, setTrips] = useState([])
-  const [totalCompletedTrips, setTotalCompletedTrips] = useState(0);
-
-
-// Fetch total trip history
-const fetchTrips = async () => {
-  try {
-    const res = await axios.get(api + `tripHistory/${user_id}`, {
-      params: { status: 'completed' },
-    })
-
-    setTrips(res.data)
-    console.log("Fetched trips:", res.data)
-
-    // Get total completed count
-    const totalCompleted = res.data.length
-    // console.log("✅ Total completed trips:", totalCompleted)
-    setTotalCompletedTrips(totalCompleted) // optional state
-
-  } catch (err) {
-    console.error("Error fetching trips:", err)
-  }
-}
-
-
-  useEffect(() => {
-    if (user_id) {
-      fetchTrips()
-    }
-  }, [user_id])
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -309,52 +471,29 @@ const fetchTrips = async () => {
       <StatusBar barStyle="light-content" backgroundColor="#0DCAF0" />
 
       {/* Header */}
-      <LinearGradient colors={["#0DCAF0", "#0AA8CD"]} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" type="material" size={24} color="#FFFFFF" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={toggleDrawer}>
+          <Icon type="material-community" name="menu" color="#fff" size={30} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Profile</Text>
         <TouchableOpacity onPress={toggleEditMode} style={styles.editButton}>
           <Icon name={editMode ? "check" : "edit"} type="material" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+      >
         {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          <View style={styles.profileImageContainer}>
-            {uploadingImage ? (
-              <View style={styles.uploadingContainer}>
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              </View>
-            ) : (
-              <Image source={getProfileImageSource()} style={styles.profileImage} />
-            )}
-
-            <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
-              <Icon name="camera-alt" type="material" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Active</Text>
-            </View>
-          </View>
-
-          <Text style={styles.profileName}>
-            {customerData?.name} {customerData?.lastName}
-          </Text>
-
-          <View style={styles.contactInfo}>
-            <View style={styles.contactItem}>
-              <Icon name="email" type="material" size={18} color="#FFFFFF" style={styles.contactIcon} />
-              <Text style={styles.contactText}>{customerData?.email}</Text>
-            </View>
-            <View style={styles.contactItem}>
-              <Icon name="phone" type="material" size={18} color="#FFFFFF" style={styles.contactIcon} />
-              <Text style={styles.contactText}>{customerData?.phoneNumber || "Not provided"}</Text>
-            </View>
-          </View>
-        </View>
+        <ProfileHeader
+          customerData={customerData}
+          uploadingImage={uploadingImage}
+          pickImage={pickImage}
+          formData={formData}
+          isProfileComplete={isProfileComplete}
+        />
 
         {/* Personal Information */}
         <View style={styles.card}>
@@ -367,157 +506,100 @@ const fetchTrips = async () => {
             {editMode ? (
               // Edit mode form
               <>
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>First Name</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={formData.name}
-                    onChangeText={(text) => handleInputChange("name", text)}
-                    placeholder="Enter your first name"
-                  />
-                </View>
+                <FormGroup
+                  label="First Name"
+                  value={formData.name}
+                  onChangeText={(text) => handleInputChange("name", text)}
+                  placeholder="Enter your first name"
+                />
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Last Name</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={formData.lastName}
-                    onChangeText={(text) => handleInputChange("lastName", text)}
-                    placeholder="Enter your last name"
-                  />
-                </View>
+                <FormGroup
+                  label="Last Name"
+                  value={formData.lastName}
+                  onChangeText={(text) => handleInputChange("lastName", text)}
+                  placeholder="Enter your last name"
+                />
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Email</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={formData.email}
-                    onChangeText={(text) => handleInputChange("email", text)}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
+                <FormGroup
+                  label="Email"
+                  value={formData.email}
+                  onChangeText={(text) => handleInputChange("email", text)}
+                  placeholder="Enter your email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Phone Number</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={formData.phoneNumber}
-                    onChangeText={(text) => handleInputChange("phoneNumber", text)}
-                    placeholder="Enter your phone number"
-                    keyboardType="phone-pad"
-                  />
-                </View>
+                <FormGroup
+                  label="Phone Number"
+                  value={formData.phoneNumber}
+                  onChangeText={(text) => handleInputChange("phoneNumber", text)}
+                  placeholder="Enter your phone number"
+                  keyboardType="phone-pad"
+                />
 
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Gender</Text>
-                  <View style={styles.genderOptions}>
-                    <TouchableOpacity
-                      style={[styles.genderOption, formData.gender === "Male" && styles.selectedGenderOption]}
-                      onPress={() => handleInputChange("gender", "Male")}
-                    >
-                      <Text
-                        style={[styles.genderOptionText, formData.gender === "Male" && styles.selectedGenderOptionText]}
-                      >
-                        Male
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.genderOption, formData.gender === "Female" && styles.selectedGenderOption]}
-                      onPress={() => handleInputChange("gender", "Female")}
-                    >
-                      <Text
-                        style={[
-                          styles.genderOptionText,
-                          formData.gender === "Female" && styles.selectedGenderOptionText,
-                        ]}
-                      >
-                        Female
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.genderOption, formData.gender === "Other" && styles.selectedGenderOption]}
-                      onPress={() => handleInputChange("gender", "Other")}
-                    >
-                      <Text
-                        style={[
-                          styles.genderOptionText,
-                          formData.gender === "Other" && styles.selectedGenderOptionText,
-                        ]}
-                      >
-                        Other
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <GenderSelector
+                    selectedGender={formData.gender}
+                    onSelect={(gender) => handleInputChange("gender", gender)}
+                  />
                 </View>
               </>
             ) : (
               // View mode
               <>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>First Name:</Text>
-                  <Text style={styles.infoValue}>{customerData?.name || "Not provided"}</Text>
-                  <TouchableOpacity
-                    style={styles.fieldEditButton}
-                    onPress={() => handleEdit("name", customerData?.name || "")}
-                  >
-                    <Icon name="edit" type="material" size={16} color="#0DCAF0" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Last Name:</Text>
-                  <Text style={styles.infoValue}>{customerData?.lastName || "Not provided"}</Text>
-                  <TouchableOpacity
-                    style={styles.fieldEditButton}
-                    onPress={() => handleEdit("lastName", customerData?.lastName || "")}
-                  >
-                    <Icon name="edit" type="material" size={16} color="#0DCAF0" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Email:</Text>
-                  <Text style={styles.infoValue}>{customerData?.email || "Not provided"}</Text>
-                  <TouchableOpacity
-                    style={styles.fieldEditButton}
-                    onPress={() => handleEdit("email", customerData?.email || "")}
-                  >
-                    <Icon name="edit" type="material" size={16} color="#0DCAF0" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Phone:</Text>
-                  <Text style={styles.infoValue}>{customerData?.phoneNumber || "Not provided"}</Text>
-                  <TouchableOpacity
-                    style={styles.fieldEditButton}
-                    onPress={() => handleEdit("phoneNumber", customerData?.phoneNumber || "")}
-                  >
-                    <Icon name="edit" type="material" size={16} color="#0DCAF0" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Gender:</Text>
-                  <Text style={styles.infoValue}>{customerData?.gender || "Not provided"}</Text>
-                  <TouchableOpacity
-                    style={styles.fieldEditButton}
-                    onPress={() => handleEdit("gender", customerData?.gender || "")}
-                  >
-                    <Icon name="edit" type="material" size={16} color="#0DCAF0" />
-                  </TouchableOpacity>
-                </View>
+                <InfoRow label="First Name" value={customerData?.name} />
+                <InfoRow label="Last Name" value={customerData?.lastName} />
+                <InfoRow label="Email" value={customerData?.email} />
+                <InfoRow label="Phone" value={customerData?.phoneNumber} />
+                <InfoRow label="Gender" value={customerData?.gender} />
               </>
             )}
           </View>
 
+
+
+          {/* Address Information */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Icon name="location-on" type="material" size={24} color="#0DCAF0" />
+              <Text style={styles.cardTitle}>Address Information</Text>
+            </View>
+
+            <View style={styles.cardContent}>
+              {editMode ? (
+                <>
+                  <FormGroup
+                    label="Permanent Address"
+                    value={formData.address}
+                    onChangeText={(text) => handleInputChange("address", text)}
+                    placeholder="Enter your permanent address"
+                    multiline={true}
+                  />
+
+                  <FormGroup
+                    label="Current Address"
+                    value={formData.current_address}
+                    onChangeText={(text) => handleInputChange("current_address", text)}
+                    placeholder="Enter your current address"
+                    multiline={true}
+                  />
+                </>
+              ) : (
+                <>
+                  <InfoRow label="Permanent" value={customerData?.address} />
+                  <InfoRow label="Current" value={customerData?.current_address} />
+                </>
+              )}
+            </View>
+          </View>
           {editMode && (
-            <TouchableOpacity style={styles.saveButton} onPress={saveAllChanges} disabled={isSaving}>
-              {isSaving ? (
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={saveAllChanges}
+              disabled={isSaving || isCreatingCustomer}
+            >
+              {isSaving || isCreatingCustomer ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
@@ -528,67 +610,6 @@ const fetchTrips = async () => {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Address Information */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Icon name="location-on" type="material" size={24} color="#0DCAF0" />
-            <Text style={styles.cardTitle}>Address Information</Text>
-          </View>
-
-          <View style={styles.cardContent}>
-            {editMode ? (
-              <>
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Permanent Address</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={formData.address}
-                    onChangeText={(text) => handleInputChange("address", text)}
-                    placeholder="Enter your permanent address"
-                    multiline
-                  />
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Current Address</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={formData.current_address}
-                    onChangeText={(text) => handleInputChange("current_address", text)}
-                    placeholder="Enter your current address"
-                    multiline
-                  />
-                </View>
-              </>
-            ) : (
-              <>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Permanent:</Text>
-                  <Text style={styles.infoValue}>{customerData?.address || "Not provided"}</Text>
-                  <TouchableOpacity
-                    style={styles.fieldEditButton}
-                    onPress={() => handleEdit("address", customerData?.address || "")}
-                  >
-                    <Icon name="edit" type="material" size={16} color="#0DCAF0" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Current:</Text>
-                  <Text style={styles.infoValue}>{customerData?.current_address || "Not provided"}</Text>
-                  <TouchableOpacity
-                    style={styles.fieldEditButton}
-                    onPress={() => handleEdit("current_address", customerData?.current_address || "")}
-                  >
-                    <Icon name="edit" type="material" size={16} color="#0DCAF0" />
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-
         {/* Payment Methods */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -600,10 +621,21 @@ const fetchTrips = async () => {
             <Text style={styles.cardDescription}>Manage your payment methods for rides.</Text>
           </View>
 
-          <TouchableOpacity style={styles.cardButton} onPress={() => navigation.navigate("PaymentMethodsScreen")}>
-            <Text style={styles.cardButtonText}>View Payment Methods</Text>
-            <Icon name="chevron-right" type="material" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
+          <CardButton
+            title="View Payment Methods"
+            onPress={() => {
+              if (!isProfileComplete().complete) {
+                Alert.alert(
+                  "Complete Profile Required",
+                  "Please fill in all required fields (First Name, Last Name, Email, Phone Number) before accessing payment methods.",
+                  [{ text: "OK" }],
+                )
+                return
+              }
+              navigation.navigate("PaymentMethodsScreen")
+            }}
+            disabled={!isProfileComplete().complete}
+          />
         </View>
 
         {/* Trip History */}
@@ -620,10 +652,7 @@ const fetchTrips = async () => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.cardButton} onPress={() => navigation.navigate("TripHistory")}>
-            <Text style={styles.cardButtonText}>View Trip History</Text>
-            <Icon name="chevron-right" type="material" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
+          <CardButton title="View Trip History" onPress={() => navigation.navigate("TripHistory")} />
         </View>
 
         {/* Language Settings */}
@@ -634,16 +663,10 @@ const fetchTrips = async () => {
           </View>
 
           <View style={styles.cardContent}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Language:</Text>
-              <Text style={styles.infoValue}>English</Text>
-            </View>
+            <InfoRow label="Language" value="English" />
           </View>
 
-          <TouchableOpacity style={styles.cardButton} onPress={() => navigation.navigate("LanguageSettings")}>
-            <Text style={styles.cardButtonText}>Change Language</Text>
-            <Icon name="chevron-right" type="material" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
+          <CardButton title="Change Language" onPress={() => navigation.navigate("LanguageSettings")} />
         </View>
 
         {/* Logout Section */}
@@ -653,56 +676,7 @@ const fetchTrips = async () => {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Edit Field Modal */}
-      <Modal visible={showEditModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Edit{" "}
-              {selectedField === "phoneNumber"
-                ? "Phone Number"
-                : selectedField === "lastName"
-                  ? "Last Name"
-                  : selectedField === "current_address"
-                    ? "Current Address"
-                    : selectedField}
-            </Text>
-
-            <TextInput
-              style={styles.modalInput}
-              value={fieldValue}
-              onChangeText={setFieldValue}
-              placeholder={`Enter your ${selectedField}`}
-              multiline={selectedField === "address" || selectedField === "current_address"}
-              keyboardType={
-                selectedField === "phoneNumber" ? "phone-pad" : selectedField === "email" ? "email-address" : "default"
-              }
-              autoCapitalize={selectedField === "email" ? "none" : "sentences"}
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowEditModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveModalButton]}
-                onPress={saveField}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.saveModalButtonText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {drawerOpen && <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />}
     </SafeAreaView>
   )
 }
@@ -754,19 +728,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 16,
     paddingHorizontal: 20,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#0DCAF0",
   },
   headerTitle: {
     fontSize: 18,
@@ -792,11 +754,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    elevation: 4,
   },
   profileImageContainer: {
     position: "relative",
@@ -878,10 +836,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginHorizontal: 20,
     marginBottom: 16,
-    shadowColor: "#0DCAF0",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
     elevation: 2,
     overflow: "hidden",
   },
@@ -902,7 +856,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-
   cardDescription: {
     fontSize: 14,
     color: "#64748B",
@@ -941,15 +894,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#1E293B",
     flex: 1,
-  },
-  fieldEditButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
   },
   cardButton: {
     flexDirection: "row",
@@ -1037,10 +981,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingVertical: 16,
     borderRadius: 16,
-    shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
     elevation: 4,
   },
   logoutIcon: {
@@ -1051,72 +991,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
+  completenessContainer: {
     width: "100%",
-    maxWidth: 400,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1E293B",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: "#1E293B",
-    backgroundColor: "#F8FAFC",
-    marginBottom: 20,
-    minHeight: 48,
+    padding: 12,
+    marginTop: 12,
   },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelButton: {
-    backgroundColor: "#F1F5F9",
-    marginRight: 8,
-  },
-  cancelButtonText: {
-    color: "#64748B",
+  completenessTitle: {
     fontSize: 14,
     fontWeight: "600",
-  },
-  saveModalButton: {
-    backgroundColor: "#0DCAF0",
-    marginLeft: 8,
-  },
-  saveModalButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
+    marginBottom: 8,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: "#4ADE80",
+    borderRadius: 4,
+  },
+  completenessWarning: {
+    fontSize: 12,
+    color: "#FFFFFF",
+    marginTop: 8,
+    fontStyle: "italic",
+  },
+  disabledButton: {
+    backgroundColor: "#94A3B8",
   },
 })
 

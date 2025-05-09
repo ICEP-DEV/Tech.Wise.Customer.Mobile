@@ -84,36 +84,36 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
 
   const formattedETA = formatETA(ETA)
 
-  useEffect(() => {
-    if (selectedPaymentMethod === "Credit Card" && user_id) {
-      const controller = new AbortController()
-      const fetchRecipientData = async () => {
-        try {
-          const response = await axios.get(api + "recipient", {
-            params: { user_id: user_id },
-            signal: controller.signal,
-            timeout: 60000,
-          })
+  // useEffect(() => {
+  //   if (selectedPaymentMethod === "Credit Card" && user_id) {
+  //     const controller = new AbortController()
+  //     const fetchRecipientData = async () => {
+  //       try {
+  //         const response = await axios.get(api + "recipient", {
+  //           params: { user_id: user_id },
+  //           signal: controller.signal,
+  //           timeout: 60000,
+  //         })
 
-          const recipient = response.data.recipients[0]
-          if (recipient) {
-            setLastFourDigits(recipient.last_four_digits)
-          }
-        } catch (error) {
-          if (!axios.isCancel(error)) {
-            console.error("Error fetching recipient data:", error)
-            Alert.alert("Error", "Could not fetch recipient data.")
-          }
-        }
-      }
+  //         const recipient = response.data.recipients[0]
+  //         if (recipient) {
+  //           setLastFourDigits(recipient.last_four_digits)
+  //         }
+  //       } catch (error) {
+  //         if (!axios.isCancel(error)) {
+  //           console.error("Error fetching recipient data:", error)
+  //           Alert.alert("Error", "Could not fetch recipient data.")
+  //         }
+  //       }
+  //     }
 
-      const timer = setTimeout(fetchRecipientData, 1000)
-      return () => {
-        clearTimeout(timer)
-        controller.abort()
-      }
-    }
-  }, [selectedPaymentMethod, user_id])
+  //     const timer = setTimeout(fetchRecipientData, 1000)
+  //     return () => {
+  //       clearTimeout(timer)
+  //       controller.abort()
+  //     }
+  //   }
+  // }, [selectedPaymentMethod, user_id])
 
   const extractedData = {
     customerId: user_id,
@@ -185,15 +185,22 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
           amount: carData.price,
           paymentDate: extractedData.requestDate,
           tripId: tripResponse.data.tripId,
+          user_id: user_id,
         }
 
+        if (selectedPaymentMethod === "Cash") {
         await axios.post(api + "payment", paymentData)
+        }
+
+        
 
         // Send trip notification to driver via Socket.io with updated tripData
         emitTripRequestToDrivers(tripData, extractedData.driverId)
 
         // Dispatch action to store updated trip data in Redux
         dispatch(setTripData(tripData))
+
+        
 
         // Navigate to the next screen
         navigation.navigate("TripLoadingResponse")
@@ -216,8 +223,8 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
   const isFemale = carData?.gender?.toLowerCase() === "female"
 
   const imageUri = carData.driverPhoto
-    ? `${BASE_URL}/public/customerProfiles/${carData.driverPhoto}`
-    : `${BASE_URL}/public/customerProfiles/placeholder.png`
+    ? carData.driverPhoto
+    : require("../../assets/placeholder.jpg")
 
   const renderStars = (rating) => {
     const stars = []

@@ -13,13 +13,13 @@ export default function CreateAccount({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [gender, setGender] = useState('');
+  // const [gender, setGender] = useState('');
 
   const signUp = async () => {
-    if (!gender) {
-      alert('Please select your gender.');
-      return;
-    }
+    // if (!gender) {
+    //   alert('Please select your gender.');
+    //   return;
+    // }
 
     if (!email || !password || !name) {
       alert('Please fill in all fields');
@@ -39,7 +39,7 @@ export default function CreateAccount({ navigation }) {
       await setDoc(userRef, {
         name,
         email,
-        gender,
+        // gender,
         role: 'user', // Default role
         createdAt: new Date().toISOString(),
       });
@@ -50,7 +50,7 @@ export default function CreateAccount({ navigation }) {
         email,
         password,
         role: 'user',
-        gender,
+        // gender,
         user_uid: response.user.uid,
       });
 

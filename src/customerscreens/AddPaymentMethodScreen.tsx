@@ -34,12 +34,13 @@ export default function PaymentMethod({ navigation }) {
   const visaIcon = require("../../assets/visa-credit-card.png")
   const [cardType, setCardType] = useState("Mastercard")
   const user_id = user.user_id
-  console.log("User :", user);
-  
+  // console.log("User :", user);
+
 
   // State variables to store input values
   const [nameOnCard, setNameOnCard] = useState(user.name)
   const [email, setEmail] = useState(user.email)
+  const [lastName, setLastName] = useState("")
   const [cardNumber, setCardNumber] = useState("")
   const [bankCode, setBankCode] = useState("")
   const [countryCode, setCountryCode] = useState("ZA")
@@ -48,6 +49,7 @@ export default function PaymentMethod({ navigation }) {
   const [customer, setCustomer] = useState(null);
   // Determine which icon to show
   const cardIcon = cardType === "Visa" ? visaIcon : mastercardIcon
+  // console.log(customer, "Customer data fetched from DB:");
 
   // Format card number with spaces
   const formatCardNumber = (text) => {
@@ -65,7 +67,7 @@ export default function PaymentMethod({ navigation }) {
 
     const fetchCustomer = async () => {
       try {
-        const res = await axios.get(api+`customer/${user_id}`);
+        const res = await axios.get(api + `customer/${user_id}`);
         setCustomer(res.data);
         // setLoading(false);
       } catch (err) {
@@ -104,44 +106,81 @@ export default function PaymentMethod({ navigation }) {
 
   // Function to handle form submission
   const handleSubmit = async () => {
-    // Basic validation
     if (!nameOnCard || !email || !cardNumber || !bankCode || !countryCode) {
-      Alert.alert("Error", "Please fill in all fields.")
-      return
+      Alert.alert("Error", "Please fill in all fields.");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     const payload = {
-      nameOnCard,
       email,
-      account_number: cardNumber.replace(/\s/g, ""), // Remove spaces
-      bank_code: bankCode,
       first_name: nameOnCard.split(" ")[0],
-      user_id: user_id,
+      last_name: customer?.lastName,
+      phone: customer?.phoneNumber,
+      card_number: cardNumber,
+      card_type: cardType,
+      bank_code: bankCode,
       country_code: countryCode,
-    }
+      user_id: user_id,
+    };
+
+
 
     try {
-      const response = await axios.post(api + "create-recipient", payload, {
+      const response = await axios.post(api + 'create-customer', payload, {
         headers: {
           "Content-Type": "application/json",
         },
-      })
+      });
 
       if (response.status === 200) {
-        Alert.alert("Success", "Withdrawal method added successfully!")
-        navigation.navigate("PaymentMethodsScreen", {
-          cardType: cardType,
-        })
+        const customerData = response.data.data;
+        saveToMySQL(customerData); // Save to MySQL after successful customer creation
+        console.log("Customer created:", customerData);
+        // Navigate or update UI
       } else {
-        Alert.alert("Error", "Failed to add withdrawal method.")
+        console.log("Customer created:", customerData);
+        // ("Error", "Failed to create customer.");
       }
+      // console.log("Payload:", payload);
+
     } catch (error) {
-      console.error("Error adding withdrawal method:", error)
-      Alert.alert("Error", "Account number is invalid or an error occurred.")
+      console.log("Error creating customer:", error.response?.data || error);
+      // Alert.alert("Error", "An error occurred while creating the customer.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
+    }
+  };
+  const saveToMySQL = async (customerData) => {
+    try {
+      // Collect the data to be sent to the server
+      const data = {
+        card_number: cardNumber,
+        card_type: cardType,
+        bank_code: bankCode,
+        country_code: countryCode,
+        user_id: user_id,
+        customer_code: customerData?.customer_code,
+        is_selected: 1,
+      }
+  
+      // Send data to the backend to insert into the MySQL database
+      const response = await axios.post(api + "customer-payment", data)
+  
+      // Log success message
+      console.log("customer-payment data successfully saved:", response.data)
+  
+      // Show success alert and navigate after user acknowledges
+      Alert.alert("Success", "Payment method has been added successfully!", [
+        {
+          text: "OK",
+          onPress: () => navigation.navigate("PaymentMethodsScreen"),
+        },
+      ])
+    } catch (error) {
+      console.error("MySQL save error:", error)
+      Alert.alert("Database Error", "Failed to save data in the database.")
     }
   }
 
@@ -174,7 +213,7 @@ export default function PaymentMethod({ navigation }) {
               <View>
                 <Text style={styles.cardLabel}>{cardType}</Text>
                 <Text style={styles.cardNumber}>
-                  {cardNumber ? formatCardNumber(cardNumber) : "•••• •••• •••• ••••"}
+                  •••• •••• •••• {cardNumber || "•••• •••• •••• ••••"}
                 </Text>
               </View>
               <Image source={cardIcon} style={styles.cardBrandLogo} />
@@ -183,7 +222,7 @@ export default function PaymentMethod({ navigation }) {
             <View style={styles.cardFooter}>
               <View>
                 <Text style={styles.cardHolderLabel}>CARD HOLDER</Text>
-                <Text style={styles.cardHolderName}>{nameOnCard || user.name|| "Enter name"}</Text>
+                <Text style={styles.cardHolderName}>{nameOnCard || user.name || "Enter name"}</Text>
               </View>
               <View>
                 <Text style={styles.bankLabel}>BANK</Text>
@@ -236,6 +275,19 @@ export default function PaymentMethod({ navigation }) {
                 />
               </View>
             </View>
+            {/* <View style={styles.inputGroup}>
+              <Text style={styles.label}>Last Name</Text>
+              <View style={styles.inputContainer}>
+                <Icon name="account" type="material-community" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={customer?.lastName}
+                  onChangeText={setLastName}
+                  placeholder="Enter Last name"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+            </View> */}
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email</Text>
@@ -253,22 +305,23 @@ export default function PaymentMethod({ navigation }) {
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Card Number</Text>
-              <View style={styles.inputContainer}>
-                <Icon name="credit-card" type="material-community" size={20} color="#64748B" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={cardNumber}
-                  onChangeText={(text) => setCardNumber(formatCardNumber(text))}
-                  placeholder="0000 0000 0000 0000"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="number-pad"
-                  maxLength={19}
-                />
-                <Image source={cardIcon} style={styles.inputCardIcon} />
-              </View>
+            <Text style={styles.label}>Card Last 4 Digits</Text>
+            <View style={styles.inputContainer}>
+              <Icon name="credit-card" type="material-community" size={20} color="#64748B" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                value={cardNumber}
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/\D/g, "").slice(0, 4) // Only digits, max 4
+                  setCardNumber(cleaned)
+                }}
+                placeholder="1234"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+                maxLength={4}
+              />
             </View>
+
 
             <View style={styles.row}>
               <View style={styles.inputGroupHalf}>
@@ -328,7 +381,7 @@ export default function PaymentMethod({ navigation }) {
               thumbColor={saveCard ? "#FFFFFF" : "#FFFFFF"}
               ios_backgroundColor="#E2E8F0"
             />
-            <Text style={styles.switchLabel}>Save this card for future withdrawals</Text>
+            <Text style={styles.switchLabel}>Save this card for future payments</Text>
           </View>
 
           <TouchableOpacity

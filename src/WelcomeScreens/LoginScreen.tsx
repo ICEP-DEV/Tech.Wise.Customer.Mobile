@@ -8,6 +8,7 @@ import { setUser } from '../redux/actions/authActions'; // Import the setUser ac
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc } from 'firebase/firestore';
 import axios from 'axios';
+import { api } from '../../api';
 
 const LoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -98,7 +99,7 @@ const LoginScreen = ({ navigation }) => {
   
   const fetchCustomerUserID = async (user, userData) => {
     try {
-      const response = await axios.post('https://tech-wise-server-oa2v-git-main-memory-iceps-projects.vercel.app/api/login', {
+      const response = await axios.post(api+'login', {
         email,
         password,
       });
@@ -106,7 +107,7 @@ const LoginScreen = ({ navigation }) => {
   
       const user_id = response.data.id;
       setUser_Id(user_id);
-      console.log("user_id:", user_id);
+      console.log("user_id:", user_id, "customer_code:", response.data.customer_code);
   
       // Dispatch updated user data to Redux with user_id and userData (role)
       dispatch(setUser({
@@ -115,6 +116,7 @@ const LoginScreen = ({ navigation }) => {
         id: user.uid,
         role: userData.role,  // Use role from userData
         user_id: user_id,     // Add user_id from API response
+        customer_code: response.data?.customer_code, // Add customer_code from userData
       }));
     } catch (error) {
       console.error("Error fetching driver id:", error);

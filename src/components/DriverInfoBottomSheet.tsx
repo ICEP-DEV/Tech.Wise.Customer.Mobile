@@ -45,8 +45,8 @@ const DriverInfoBlurView = ({ route, navigation }) => {
       // Set image URLs
       const carImageUri = car.image ? api + `public/carImages/${car.image}` : api + "public/carImages/placeholder.png"
       const driverImageUri = driver.profileImage
-        ? api + `public/customerProfiles/${driver.profileImage}`
-        : api + "public/customerProfiles/placeholder.png"
+      ? driver.profileImage
+      : require("../../assets/placeholder.jpg")
 
       setCarImage(carImageUri)
       setDriverImage(driverImageUri)

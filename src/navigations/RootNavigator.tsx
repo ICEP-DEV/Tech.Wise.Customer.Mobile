@@ -39,6 +39,8 @@ import ForgotPasswordScreen from "../WelcomeScreens/ForgotPasswordScreen";
 import DriverWallet from "../components/WalletDriver";
 import TripCancellationModal from "../components/TripCancelationModal";
 import CustomerChat from "../customerscreens/CustomerChat";
+import PaymentSuccess from "../components/payment-success";
+import RideRatingScreen from "../customerscreens/RideRatingScreen";
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 const Tab = createBottomTabNavigator();
@@ -145,6 +147,15 @@ function DrawerNavigator() {
           ),
         }}
       />
+            <Drawer.Screen
+        name="Ride Rating"
+        component={RideRatingScreen}
+        options={{
+          drawerIcon: ({ focused, size }) => (
+            <Icon name="account-circle" type="material-community" size={size} color={focused ? "#7cc" : "gray"} />
+          ),
+        }}
+      />
       <Drawer.Screen
         name="About"
         component={AboutScreen}
@@ -163,6 +174,7 @@ function DrawerNavigator() {
           ),
         }}
       />
+      
       <Drawer.Screen
         name="Logout"
         component={LogoutPage}
@@ -179,6 +191,7 @@ function DrawerNavigator() {
         component={RootNavigator}
         options={{ drawerItemStyle: { display: 'none' } }}
       />
+
 
     </Drawer.Navigator>
   );
@@ -266,6 +279,7 @@ export default function RootNavigator() {
         <Stack.Screen name="DestinationScreen" component={DestinationScreen} options={{ headerShown: false }} />
         <Stack.Screen name="PrivacySettings" component={PrivacySettings} options={{ headerShown: false }} />
         <Stack.Screen name="PaymentScreen" component={PaymentScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="PaymentSuccess" component={PaymentSuccess} options={{ headerShown: false }} />
         <Stack.Screen name="PaymentMethodsScreen" component={PaymentMethodsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="LanguageSettings" component={LanguageSettings} options={{ headerShown: false }} />
         <Stack.Screen name="CommunicationPreferences" component={CommunicationPreferences} options={{ headerShown: false }} />
@@ -275,7 +289,7 @@ export default function RootNavigator() {
         <Stack.Screen name="TripCancellationModal" component={TripCancellationModal} options={{ headerShown: false }} />
         <Stack.Screen name="CustomerChat" component={CustomerChat} options={{ headerShown: false }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-
+        <Stack.Screen name="RideRatingScreen" component={RideRatingScreen} options={{ headerShown: false }} />
 
 
         {/* Recent Places Bottom Sheet */}

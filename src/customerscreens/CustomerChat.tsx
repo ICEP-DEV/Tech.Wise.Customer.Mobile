@@ -29,12 +29,36 @@ const CustomerChat = () => {
   const trip_id = useSelector((state) => state.trip.tripData?.tripId || "")
   const message = useSelector((state) => state.message.message || [])
   console.log('Trip',driverId);
-  
-
+  console.log('trip=====',trip_id);
+console.log('driverId',driverId);
   // State for messages and input text
   const [messages, setMessages] = useState([])
   const [messageText, setMessageText] = useState("")
 
+  useEffect(() => {
+    if (user_id) {
+      connectSocket(user_id, 'customer')
+    }
+  
+    listenToChatMessages((incomingMessage) => {
+      setMessages(prev => [...prev, incomingMessage])
+      console.log('Incoming message', incomingMessage);
+    })
+  
+    listenToEditedMessages((updatedMessage) => {
+      setMessages(prev =>
+        prev.map(msg => msg.id === updatedMessage.id ? { ...msg, message: updatedMessage.message } : msg)
+      )
+    })
+  
+    listenToDeletedMessages((deletedMessage) => {
+      setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id))
+    })
+  
+    return () => {
+      stopListeningToChatMessages()
+    }
+  }, [user_id])
   // Effect to handle incoming messages from Redux - FIXED to prevent infinite loop
   useEffect(() => {
     // Skip if message is empty or undefined

@@ -1,76 +1,118 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { View, Text, TouchableOpacity, Image, StyleSheet, FlatList, Alert, Dimensions, StatusBar } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Icon } from "react-native-elements"
 import { LinearGradient } from "expo-linear-gradient"
+import { useDispatch, useSelector } from "react-redux"
+import axios from "axios"
+import { api } from "../../api"
+import { setCard } from "../redux/actions/cardsAction"
 
 const { width } = Dimensions.get("window")
 
 const PaymentMethodsScreen = ({ navigation }) => {
-  // Dummy user data
-  const user = { name: "John Doe" }
-
-  // Dummy cards data
-  const [cardsDetails, setCardsDetails] = useState([
-    {
-      id: "1",
-      card_type: "Mastercard",
-      last_four_digits: "4242",
-      is_selected: 1,
-      expiry_date: "05/25",
-    },
-    {
-      id: "2",
-      card_type: "Visa",
-      last_four_digits: "1234",
-      is_selected: 0,
-      expiry_date: "12/24",
-    },
-    {
-      id: "3",
-      card_type: "Mastercard",
-      last_four_digits: "8765",
-      is_selected: 0,
-      expiry_date: "09/26",
-    },
-  ])
-
-  const [selectedCardId, setSelectedCardId] = useState("1") // Default to first card
-  const [isLoading, setIsLoading] = useState(false)
+  const user = useSelector((state) => state.auth.user)
+  const user_id = user?.user_id
+  const [cardsDetails, setCardsDetails] = useState([])
+  const [selectedCardId, setSelectedCardId] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   const mastercardIcon = require("../../assets/mastercard.png")
   const visaIcon = require("../../assets/visa-credit-card.png")
+  const dispatch = useDispatch()
+  // Fetch user cards from backend
+  useEffect(() => {
+    if (!user_id) return
+    const fetchCustomerCards = async () => {
+      setIsLoading(true)
+      try {
+        const res = await axios.get(api + `customer-cards/${user_id}`)
+        console.log("Customer Cards--------------:", res.data)
+
+        const cards = res.data
+        setCardsDetails(cards)
+
+        // Set the selected card if any is marked as selected
+        const selected = cards.find((card) => card.is_selected === 1)
+
+        // If there's only one card and it's not selected, automatically select it
+        if (cards.length === 1 && !selected) {
+          const singleCard = cards[0]
+          setSelectedCardId(singleCard.id)
+
+          // Update the card in the database
+          try {
+            await axios.put(`${api}customer-card/select`, {
+              user_id,
+              selected_card_id: singleCard.id,
+            })
+
+            // Update local state to reflect the selection
+            setCardsDetails([
+              {
+                ...singleCard,
+                is_selected: 1,
+              },
+            ])
+
+            // Update Redux store
+            dispatch(
+              setCard({
+                cardsDetails: [
+                  {
+                    ...singleCard,
+                    is_selected: 1,
+                  },
+                ],
+              }),
+            )
+          } catch (error) {
+            console.error("Error auto-selecting single card:", error)
+            // Still set it as selected in the UI even if the API call fails
+            setSelectedCardId(singleCard.id)
+          }
+        } else {
+          // Normal case - set selected card from API response
+          setSelectedCardId(selected ? selected.id : cards[0]?.id || null)
+        }
+      } catch (err) {
+        console.error("Error fetching customer Cards:", err)
+        setCardsDetails([])
+        setSelectedCardId(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchCustomerCards()
+  }, [user_id])
 
   const handleDeleteCard = (cardId) => {
     Alert.alert(
       "Delete Card",
       "Are you sure you want to delete this card?",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
-          onPress: () => {
+          onPress: async () => {
             setIsLoading(true)
-            // Simulate API call delay
-            setTimeout(() => {
-              // Update local state
+            try {
+              await axios.delete(`${api}customer-card/${cardId}`)
               const updatedCards = cardsDetails.filter((card) => card.id !== cardId)
               setCardsDetails(updatedCards)
 
-              if (selectedCardId === cardId && updatedCards.length > 0) {
-                // Select the first card if the selected card was deleted
-                setSelectedCardId(updatedCards[0].id)
-                // Update the selected status in the cards array
-                updatedCards[0].is_selected = 1
+              // Reset selected card if deleted
+              if (selectedCardId === cardId) {
+                setSelectedCardId(updatedCards[0]?.id || null)
               }
-
+            } catch (err) {
+              console.error("Failed to delete card:", err)
+              Alert.alert("Error", "Could not delete the card. Please try again.")
+            } finally {
               setIsLoading(false)
-            }, 500)
+            }
           },
         },
       ],
@@ -78,32 +120,42 @@ const PaymentMethodsScreen = ({ navigation }) => {
     )
   }
 
-  // Function to handle card selection
-  const handleCardSelect = (cardId) => {
-    if (selectedCardId === cardId) {
-      return
-    }
+  const handleCardSelect = async (cardId) => {
+    if (selectedCardId === cardId) return
 
     setIsLoading(true)
-    // Simulate API call delay
-    setTimeout(() => {
-      // Update selected card in state
+    try {
+      // Send update to backend to set selected card
+      await axios.put(`${api}customer-card/select`, {
+        user_id,
+        selected_card_id: cardId,
+      })
+
       setSelectedCardId(cardId)
-
-      // Update is_selected status in cards array
-      const updatedCards = cardsDetails.map((card) => ({
-        ...card,
-        is_selected: card.id === cardId ? 1 : 0,
-      }))
-
-      setCardsDetails(updatedCards)
+      dispatch(
+        setCard({
+          cardsDetails,
+        }),
+      ) // Store user details in Redux
+      setCardsDetails(
+        cardsDetails.map((card) => ({
+          ...card,
+          is_selected: card.id === cardId ? 1 : 0,
+        })),
+      )
+    } catch (error) {
+      console.error("Error selecting card:", error)
+      Alert.alert("Error", "Failed to set primary card. Please try again.")
+    } finally {
       setIsLoading(false)
-    }, 500)
+    }
   }
 
+  // Fix the card type check in the renderCardItem function
   const renderCardItem = ({ item }) => {
     const isSelected = item.id === selectedCardId
-    const cardLogo = item.card_type === "Visa" ? visaIcon : mastercardIcon
+    // Fix the card type check to be case-insensitive
+    const cardLogo = item.card_type?.toLowerCase() === "visa" ? visaIcon : mastercardIcon
 
     return (
       <View style={styles.cardItemContainer}>
@@ -115,9 +167,8 @@ const PaymentMethodsScreen = ({ navigation }) => {
           <View style={styles.cardItemContent}>
             <Image source={cardLogo} style={styles.cardLogo} />
             <View style={styles.cardDetails}>
-              <Text style={styles.cardType}>{item.card_type}</Text>
+              <Text style={styles.cardType}>{item.bank_code}</Text>
               <Text style={styles.cardNumberText}>•••• •••• •••• {item.last_four_digits}</Text>
-              <Text style={styles.expiryText}>Expires: {item.expiry_date}</Text>
             </View>
           </View>
           <View style={[styles.checkCircle, isSelected && styles.selectedCheckCircle]}>
@@ -137,7 +188,6 @@ const PaymentMethodsScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FBFD" />
-
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -159,26 +209,20 @@ const PaymentMethodsScreen = ({ navigation }) => {
               <View style={styles.cardChip}>
                 <Icon name="credit-card-chip" type="material-community" size={30} color="#FFD700" />
               </View>
-
               <View style={styles.cardHeader}>
                 <View>
-                  <Text style={styles.cardLabel}>{selectedPrimaryCard.card_type}</Text>
+                  <Text style={styles.cardLabel}>{selectedPrimaryCard.bank_code}</Text>
                   <Text style={styles.cardNumber}>•••• •••• •••• {selectedPrimaryCard.last_four_digits}</Text>
                 </View>
                 <Image
-                  source={selectedPrimaryCard.card_type === "Visa" ? visaIcon : mastercardIcon}
+                  source={selectedPrimaryCard.card_type?.toLowerCase() === "visa" ? visaIcon : mastercardIcon}
                   style={styles.cardBrandLogo}
                 />
               </View>
-
               <View style={styles.cardFooter}>
                 <View>
                   <Text style={styles.cardHolderLabel}>CARD HOLDER</Text>
-                  <Text style={styles.cardHolderName}>{user.name}</Text>
-                </View>
-                <View>
-                  <Text style={styles.expiryLabel}>EXPIRES</Text>
-                  <Text style={styles.expiryValue}>{selectedPrimaryCard.expiry_date}</Text>
+                  <Text style={styles.cardHolderName}>{user?.name}</Text>
                 </View>
               </View>
             </LinearGradient>
@@ -194,7 +238,6 @@ const PaymentMethodsScreen = ({ navigation }) => {
         {/* Available Cards List */}
         <View style={styles.cardsListContainer}>
           <Text style={styles.sectionTitle}>Your Payment Cards</Text>
-
           {cardsDetails.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Icon name="credit-card-off" type="material-community" size={50} color="#CBD5E1" />
@@ -213,14 +256,14 @@ const PaymentMethodsScreen = ({ navigation }) => {
         </View>
 
         {/* Add New Card Button */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.addCardButton}
           onPress={() => navigation.navigate("AddPaymentMethodScreen")}
           disabled={isLoading}
         >
           <Icon name="add-circle-outline" type="material" size={20} color="#FFFFFF" />
           <Text style={styles.addCardButtonText}>Add New Card</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </SafeAreaView>
   )
