@@ -99,7 +99,7 @@ const DestinationScreen = ({ navigation, route }) => {
   const [notificationCountChat, setNotificationCountChat] = useState("")
   const [authorizationUrl, setAuthorizationUrl] = useState(null);
   const [tripMeta, setTripMeta] = useState({});
-  
+
   const handleCancelTrip = () => {
     setCancelModalVisible(true) // Show cancellation modal
   }
@@ -198,26 +198,26 @@ const DestinationScreen = ({ navigation, route }) => {
       setTripStatus("started")
       alert(`Your trip has been started! Trip ID: ${data.tripId}`)
 
-    
+
     })
 
     // Listen for when the trip is ended
-  // Listen for when the trip is ended
-listenToTripEnded((data) => {
-  console.log("Trip ended data:", data); // logs the whole object
-  // console.log("Trip ID:", data?.tripId);
-  // console.log("Driver ID'''''''':", data?.driver_id);
+    // Listen for when the trip is ended
+    listenToTripEnded((data) => {
+      console.log("Trip ended data:", data); // logs the whole object
+      // console.log("Trip ID:", data?.tripId);
+      // console.log("Driver ID'''''''':", data?.driver_id);
 
-  // alert(`Your trip has ended! Trip ID: ${data.tripId}`);
-  setTripStatus("ended");
+      // alert(`Your trip has ended! Trip ID: ${data.tripId}`);
+      setTripStatus("ended");
 
-  // Navigate to RideRatingScreen
-  navigation.navigate("RideRatingScreen", {
-    tripId: data.tripId,
-    driverId: data.driver_id, // if needed for the rating
-    userId: user_id
-  });
-});
+      // Navigate to RideRatingScreen
+      navigation.navigate("RideRatingScreen", {
+        tripId: data.tripId,
+        driverId: data.driver_id, // if needed for the rating
+        userId: user_id
+      });
+    });
 
 
 
@@ -279,15 +279,15 @@ listenToTripEnded((data) => {
   useEffect(() => {
     if (tripStatusAccepted === "canceled") {
       navigation.navigate("RequestScreen", { driverId: driver_id });
-  
+
       setTimeout(() => {
         navigation.navigate("CarListingBottomSheet", { driverId: driver_id });
       }, 1000);
-  
+
       stopListeningToTripAccepted();
       stopListeningToTripDeclined();
     }
-  
+
     if (
       tripStatusAccepted === "on-going" &&
       driver_id &&
@@ -295,12 +295,12 @@ listenToTripEnded((data) => {
       tripData?.paymentType === "Credit Card"
     ) {
       console.log("Trip is ongoing, checking payment status...");
-  
+
       const checkAndInitiatePayment = async () => {
         const code = await fetchCustomerCode();
         if (code && tripAmount > 0) {
           console.log(`Initiating payment: ${tripAmount} ZAR`);
-  
+
           try {
             const response = await fetch(api + "initialize-payment", {
               method: "POST",
@@ -314,10 +314,10 @@ listenToTripEnded((data) => {
                 driverId: driver_id,
               }),
             });
-  
+
             const data = await response.json();
             console.log("Backend init response:", data);
-  
+
             if (data.charged) {
               // ✅ Payment was automatically charged!
               Alert.alert("Payment Success", "Your saved card was charged successfully.");
@@ -348,12 +348,12 @@ listenToTripEnded((data) => {
           }
         }
       };
-  
+
       checkAndInitiatePayment();
     }
   }, [tripStatusAccepted]);
-  
-  
+
+
 
 
   // Fetch driver location from firestore according to trip status
@@ -471,7 +471,7 @@ listenToTripEnded((data) => {
           if (navState.url.includes("PaymentSuccess")) {
             const urlParams = new URLSearchParams(navState.url.split("?")[1]);
             const reference = urlParams.get("reference");
-  
+
             if (reference) {
               setAuthorizationUrl(null);
               navigation.navigate("PaymentSuccess", {
@@ -488,7 +488,7 @@ listenToTripEnded((data) => {
       />
     );
   }
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <TouchableWithoutFeedback onPress={() => drawerOpen && setDrawerOpen(false)}>
@@ -540,6 +540,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   header: {
+    position: "absolute",
+    top: 30,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -562,11 +564,11 @@ const styles = StyleSheet.create({
   },
   profilePictureContainer: {
     position: "absolute",
-    top: 70,
+    top: 40,
     right: 20,
     zIndex: 10,
-    width: 50,
-    height: 50,
+    width: 40,
+    height: 40,
     borderRadius: 25,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
@@ -578,7 +580,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   cancelButtonContainer: {
-    top: 130, // Position below the call button
+    top: 100, // Position below the call button
   },
   profilePicture: {
     width: 30,

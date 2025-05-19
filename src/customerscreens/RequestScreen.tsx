@@ -19,6 +19,7 @@ import { setUser } from "../redux/actions/authActions" // Import the action to u
 
 const SCREEN_HEIGHT = Dimensions.get("window").height
 const FETCH_INTERVAL = 30000 // Fetch customer code every 30 seconds
+const MAX_DISTANCE_KM = 200 // Maximum allowed distance in kilometers
 
 export default function RequestScreen({ navigation }) {
   const user = useSelector((state) => state.auth.user)
@@ -37,6 +38,36 @@ export default function RequestScreen({ navigation }) {
   const [showProfileAlert, setShowProfileAlert] = useState(false)
   const [customerCode, setCustomerCode] = useState(user?.customer_code || null)
   const [isLoading, setIsLoading] = useState(true)
+  const [showDistanceAlert, setShowDistanceAlert] = useState(false)
+  const [distanceInKm, setDistanceInKm] = useState(0)
+
+  // Function to calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371 // Earth radius in kilometers
+    const dLat = ((lat2 - lat1) * Math.PI) / 180
+    const dLon = ((lon2 - lon1) * Math.PI) / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    const distance = R * c // Distance in kilometers
+    return distance
+  }
+
+  // Function to check if the distance is within allowed limit
+  const checkDistanceLimit = (originCoords, destCoords) => {
+    if (!originCoords || !destCoords) return true
+
+    const distance = calculateDistance(
+      originCoords.latitude,
+      originCoords.longitude,
+      destCoords.latitude,
+      destCoords.longitude,
+    )
+
+    setDistanceInKm(distance.toFixed(2))
+    return distance <= MAX_DISTANCE_KM
+  }
 
   // Function to fetch customer code from the database
   const fetchCustomerCode = async () => {
@@ -125,6 +156,12 @@ export default function RequestScreen({ navigation }) {
       return
     }
 
+    // Check if distance is within allowed limit
+    if (!checkDistanceLimit(origin, destination)) {
+      setShowDistanceAlert(true)
+      return
+    }
+
     if (destination && destination.latitude !== null && destination.longitude !== null) {
       navigation.navigate("CarListingBottomSheet", { destinations: destination })
     } else {
@@ -150,6 +187,12 @@ export default function RequestScreen({ navigation }) {
         return
       }
 
+      // Check if distance is within allowed limit
+      if (!checkDistanceLimit(origin, destination)) {
+        setShowDistanceAlert(true)
+        return
+      }
+
       navigation.navigate("CarListingBottomSheet")
     }
   }, [destination?.latitude, destination?.longitude])
@@ -169,6 +212,7 @@ export default function RequestScreen({ navigation }) {
     }
     dispatchDestination({ type: "RESET_DESTINATION" })
     setDestination(false)
+    setShowDistanceAlert(false)
   }
 
   return (
@@ -237,14 +281,27 @@ export default function RequestScreen({ navigation }) {
                       return
                     }
 
+                    const newDestination = {
+                      latitude: details.geometry.location.lat,
+                      longitude: details.geometry.location.lng,
+                      address: details.formatted_address,
+                      name: details.name,
+                    }
+
+                    // Check if distance is within allowed limit
+                    if (!checkDistanceLimit(origin, newDestination)) {
+                      setShowDistanceAlert(true)
+                      // Still set the destination to show on map, but don't proceed to next screen
+                      dispatchDestination({
+                        type: "ADD_DESTINATION",
+                        payload: newDestination,
+                      })
+                      return
+                    }
+
                     dispatchDestination({
                       type: "ADD_DESTINATION",
-                      payload: {
-                        latitude: details.geometry.location.lat,
-                        longitude: details.geometry.location.lng,
-                        address: details.formatted_address,
-                        name: details.name,
-                      },
+                      payload: newDestination,
                     })
                   }
                 }}
@@ -307,6 +364,39 @@ export default function RequestScreen({ navigation }) {
 
                   <TouchableOpacity style={styles.profileButton2} onPress={navigateToProfile}>
                     <Text style={styles.profileButtonText}>Update Profile</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Distance Limit Alert Modal */}
+        {showDistanceAlert && (
+          <Modal
+            visible={true}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowDistanceAlert(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Icon name="map-marker-distance" type="material-community" size={60} color="#FF6B6B" />
+                  <Text style={styles.modalTitle}>Distance Limit Exceeded</Text>
+                </View>
+
+                <Text style={styles.modalText}>
+                  The distance between your pickup and destination is approximately {distanceInKm} km, which exceeds our
+                  maximum limit of {MAX_DISTANCE_KM} km. Please choose a closer destination.
+                </Text>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.profileButton2, { backgroundColor: "#FF6B6B", flex: 1 }]}
+                    onPress={() => setShowDistanceAlert(false)}
+                  >
+                    <Text style={styles.profileButtonText}>OK</Text>
                   </TouchableOpacity>
                 </View>
               </View>
