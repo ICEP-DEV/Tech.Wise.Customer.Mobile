@@ -35,7 +35,7 @@ import LogoutPage from "../WelcomeScreens/LogoutPage";
 import { auth } from "../../FirebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import ProtectedScreen from "../WelcomeScreens/ProtectedScreen";
-import ForgotPasswordScreen from "../WelcomeScreens/ForgotPasswordScreen";
+// import ForgotPasswordScreen from "../WelcomeScreens/ForgotPasswordScreen";
 import DriverWallet from "../components/WalletDriver";
 import TripCancellationModal from "../components/TripCancelationModal";
 import CustomerChat from "../customerscreens/CustomerChat";
@@ -269,7 +269,7 @@ export default function RootNavigator() {
         <Stack.Screen name="LoginScreen" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="LogoutPage" component={LogoutPage} options={{ headerShown: false }} />
         <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="ForgotPasswordScreen" component={ForgotPasswordScreen} options={{ headerShown: false }}/>
+        {/* <Stack.Screen name="ForgotPasswordScreen" component={ForgotPasswordScreen} options={{ headerShown: false }}/> */}
         <Stack.Screen name="ProtectedScreen" component={ProtectedScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Profile" component={CustomerProfile} options={{ headerShown: false }} />
         <Stack.Screen name="TripDetails" component={TripDetails} options={{ headerShown: false }} />

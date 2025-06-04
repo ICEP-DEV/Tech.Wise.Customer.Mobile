@@ -43,42 +43,42 @@ const LoginScreen = ({ navigation }) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-  
+
       // Ensure email verification status is up-to-date
       await user.reload();
-  
+
       if (!user.emailVerified) {
         alert('Please verify your email before logging in.');
         navigation.navigate('ProtectedScreen');
         return;
       }
-  
+
       // Retrieve user data from Firestore
       const userRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userRef);
-  
+
       if (!userDoc.exists()) {
         alert('User not found.');
         return;
       }
-  
+
       const userData = userDoc.data();
       console.log("User data from Firestore:", userData);
-  
+
       // Check if the user is a driver
       if (userData.role !== 'user') {
         alert('Only customers are allowed to log in.');
         navigation.replace('LogoutPage');
         return;
       }
-  
+
       // Store user details in AsyncStorage
       await AsyncStorage.setItem('userId', user.uid);
       await AsyncStorage.setItem('emailVerified', 'true');
-  
+
       setUserId(user.uid);
       setUserAuth(user);
-      
+
       // Dispatch user details to Redux
       dispatch(setUser({
         name: user.displayName,
@@ -86,7 +86,7 @@ const LoginScreen = ({ navigation }) => {
         id: user.uid,
         role: userData.role,
       }));
-  
+
       // Call fetchCustomerUserID and pass user and userData
       fetchCustomerUserID(user, userData);  // Pass both user and userData here
     } catch (error) {
@@ -96,19 +96,19 @@ const LoginScreen = ({ navigation }) => {
       setAuthenticating(false);
     }
   };
-  
+
   const fetchCustomerUserID = async (user, userData) => {
     try {
-      const response = await axios.post(api+'login', {
+      const response = await axios.post(api + 'login', {
         email,
         password,
       });
       console.log("user_id Response:", response.data);
-  
+
       const user_id = response.data.id;
       setUser_Id(user_id);
       console.log("user_id:", user_id, "customer_code:", response.data.customer_code);
-  
+
       // Dispatch updated user data to Redux with user_id and userData (role)
       dispatch(setUser({
         name: user.displayName,  // Use user data passed from signIn
@@ -124,7 +124,7 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    
+
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -133,96 +133,97 @@ const LoginScreen = ({ navigation }) => {
         <View style={{ flex: 1 }}>
 
           <StatusBar barStyle="dark-content" />
-          
+
           <ScrollView
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
           >
-      <Image
-        source={require('../../assets/topCar.png')} // Update path as needed
-        style={styles.carImage}
-        resizeMode="cover"
-      />
-      <View style={styles.formContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Sign In</Text>
-          <Text style={styles.subtitle}>Hi! Welcome back, you've been missed</Text>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="example@gmail.com"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••••••••"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Icon
-                name={showPassword ? 'eye-off' : 'eye'}
-                type="feather"
-                size={24}
-                color="gray"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPasswordScreen')}>
-            <Text style={styles.forgotPassword}>Forgot Password?</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.button, authenticating && { backgroundColor: '#aaa' }]}
-          onPress={signIn}
-          disabled={authenticating}
-        >
-          {authenticating ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.orContainer}>
-          <View style={styles.separator} />
-          <Text style={styles.orText}>Or sign up with</Text>
-        </View>
-
-        <View style={styles.socialButtons}>
-          <TouchableOpacity style={styles.socialButton}>
             <Image
-              source={require('../../assets/icons/google.png')}
-              style={styles.socialIcon}
+              source={require('../../assets/topCar.png')} // Update path as needed
+              style={styles.carImage}
+              resizeMode="cover"
             />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
-            <Image
-              source={require('../../assets/icons/facebook.png')}
-              style={styles.socialIcon}
-            />
-          </TouchableOpacity>
-        </View>
+            <View style={styles.formContainer}>
+              <View style={styles.header}>
+                <Text style={styles.title}>Sign In</Text>
+                <Text style={styles.subtitle}>Hi! Welcome back, you've been missed</Text>
+              </View>
 
-        <Text style={styles.footerText}>
-          Don't have an account?{' '}
-          <Text style={styles.link} onPress={() => navigation.navigate('SignUp')}>
-            Sign Up
-          </Text>
-        </Text>
-      </View>
-    </ScrollView>
-</View>
-</TouchableWithoutFeedback>
-</KeyboardAvoidingView>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="example@gmail.com"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="••••••••••••••"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                    <Icon
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      type="feather"
+                      size={24}
+                      color="gray"
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity >
+                  {/* onPress={() => navigation.navigate('ForgotPasswordScreen')} */}
+                  <Text style={styles.forgotPassword}>Forgot Password?</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.button, authenticating && { backgroundColor: '#aaa' }]}
+                onPress={signIn}
+                disabled={authenticating}
+              >
+                {authenticating ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Sign In</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.orContainer}>
+                <View style={styles.separator} />
+                <Text style={styles.orText}>Or sign up with</Text>
+              </View>
+
+              <View style={styles.socialButtons}>
+                <TouchableOpacity style={styles.socialButton}>
+                  <Image
+                    source={require('../../assets/icons/google.png')}
+                    style={styles.socialIcon}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.socialButton}>
+                  <Image
+                    source={require('../../assets/icons/facebook.png')}
+                    style={styles.socialIcon}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.footerText}>
+                Don't have an account?{' '}
+                <Text style={styles.link} onPress={() => navigation.navigate('SignUp')}>
+                  Sign Up
+                </Text>
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -340,7 +341,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover', // Ensures the image covers the area
     // marginTop: StatusBar.currentHeight || 0, // Adjusts for status bar on Android
   },
-  
+
 });
 
 export default LoginScreen;

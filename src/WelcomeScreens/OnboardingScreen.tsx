@@ -1,91 +1,108 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, View, Image, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Swiper from 'react-native-swiper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onboarding } from '../constants/index'; // Adjust path as needed
-import CustomButton from '../components/CustomButton'; // Import your CustomButton
+import { onboarding } from '../constants/index';
+import CustomButton from '../components/CustomButton';
+
+const ONBOARDING_KEY = 'hasOnboarded';
 
 const OnboardingScreen = ({ navigation }) => {
   const swiperRef = useRef<Swiper>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Check if the user has completed onboarding
+  // Memoized onboarding completion handler
+  const handleCompleteOnboarding = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      navigation.replace('SignUp');
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  }, [navigation]);
+
+  // Check onboarding status on mount
   useEffect(() => {
     const checkOnboardingStatus = async () => {
-      const hasOnboarded = await AsyncStorage.getItem('hasOnboarded');
-      if (hasOnboarded === 'true') {
-        navigation.replace('SignUp'); // Navigate if already onboarded
+      try {
+        const hasOnboarded = await AsyncStorage.getItem(ONBOARDING_KEY);
+        if (hasOnboarded === 'true') {
+          navigation.replace('SignUp');
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
       }
     };
 
     checkOnboardingStatus();
   }, [navigation]);
 
-  const handleIndexChange = (index: Number) => {
+  // Memoized index change handler
+  const handleIndexChange = useCallback((index: number) => {
     setCurrentIndex(index);
-  };
+  }, []);
 
-  const handleCompleteOnboarding = async () => {
-    try {
-      await AsyncStorage.setItem('hasOnboarded', 'true'); // Mark onboarding as complete
-      navigation.replace('SignUp'); // Navigate to SignUp
-    } catch (error) {
-      console.error('Error saving onboarding status:', error);
-    }
-  };
-
-  const handleNextPress = () => {
-    if (currentIndex === onboarding.length - 1) {
-      handleCompleteOnboarding(); // If it's the last slide
+  // Memoized next press handler
+  const handleNextPress = useCallback(() => {
+    const isLastSlide = currentIndex === onboarding.length - 1;
+    
+    if (isLastSlide) {
+      handleCompleteOnboarding();
     } else {
-      swiperRef.current?.scrollBy(1); // Otherwise, go to the next slide
+      swiperRef.current?.scrollBy(1);
     }
-  };
+  }, [currentIndex, handleCompleteOnboarding]);
+
+  // Memoized slide renderer
+  const renderSlide = useCallback((item) => {
+    const isLastSlide = currentIndex === onboarding.length - 1;
+    
+    return (
+      <View key={item.id} style={styles.slide}>
+        {item.image ? (
+          <Image 
+            source={typeof item.image === 'string' ? { uri: item.image } : item.image} 
+            style={styles.slideImage} 
+          />
+        ) : (
+          <Text style={styles.slidePlaceholder}>No Image Available</Text>
+        )}
+        
+        <Text style={styles.slideTitle}>{item.title}</Text>
+        <Text style={styles.slideDescription}>{item.description}</Text>
+
+        <CustomButton
+          title={isLastSlide ? 'Get Started' : 'Next'}
+          onPress={handleNextPress}
+          bgVariant="none"
+          textVariant="default"
+          className={styles.cornerButton}
+        />
+      </View>
+    );
+  }, [currentIndex, handleNextPress]);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Skip Button */}
       <TouchableOpacity
         onPress={handleCompleteOnboarding}
         style={styles.skipButton}
+        activeOpacity={0.7}
       >
         <Text style={styles.skipText}>Skip</Text>
       </TouchableOpacity>
 
-      {/* Swiper */}
       <Swiper
         ref={swiperRef}
         loop={false}
         dot={<View style={styles.dot} />}
         activeDot={<View style={styles.activeDot} />}
         onIndexChanged={handleIndexChange}
+        showsPagination={true}
+        removeClippedSubviews={true}
       >
-        {/* Dynamic Slides */}
-        {onboarding.map((item) => (
-          <View key={item.id} style={styles.slide}>
-            {item.image ? (
-              typeof item.image === 'string' ? (
-                <Image source={{ uri: item.image }} style={styles.slideImage} />
-              ) : (
-                <Image source={item.image} style={styles.slideImage} />
-              )
-            ) : (
-              <Text style={styles.slidePlaceholder}>No Image Available</Text>
-            )}
-            <Text style={styles.slideTitle}>{item.title}</Text>
-            <Text style={styles.slideDescription}>{item.description}</Text>
-
-            {/* Custom Button */}
-            <CustomButton
-              title={currentIndex === onboarding.length - 1 ? 'Get Started' : 'Next'}
-              onPress={handleNextPress}
-              bgVariant="none" // No background color
-              textVariant="default" // Black text
-              className={styles.cornerButton}
-            />
-          </View>
-        ))}
+        {onboarding.map(renderSlide)}
       </Swiper>
     </SafeAreaView>
   );
@@ -101,10 +118,13 @@ const styles = StyleSheet.create({
   skipButton: {
     alignSelf: 'flex-end',
     margin: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   skipText: {
     fontSize: 16,
     color: '#007AFF',
+    fontWeight: '500',
   },
   dot: {
     width: 32,
@@ -125,6 +145,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
+    paddingHorizontal: 20,
   },
   slideImage: {
     width: 200,
@@ -138,18 +159,21 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     marginBottom: 10,
+    lineHeight: 32,
   },
   slideDescription: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 24,
   },
   slidePlaceholder: {
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
     fontStyle: 'italic',
+    marginBottom: 20,
   },
   cornerButton: {
     position: 'absolute',
@@ -158,11 +182,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 5,
-    elevation: 5,
-  },
-  buttonText: {
-    fontSize: 16,
-    color: '#000', // Black text
   },
 });
 
