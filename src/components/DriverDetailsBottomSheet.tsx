@@ -11,8 +11,10 @@ import {
   Dimensions,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
+  Platform,
 } from "react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { DestinationContext, OriginContext } from "../contexts/contexts"
 import { DriverOriginContext } from "../contexts/driverContexts"
 import axios from "axios"
@@ -21,7 +23,7 @@ import { useDispatch } from "react-redux"
 import { setTripData } from "../redux/actions/tripActions"
 import { api } from "../../api"
 import { BASE_URL } from "../../api"
-import { connectSocket, emitTripRequestToDrivers } from "../configSocket/socketConfig" // Import socket functions
+import { connectSocket, emitTripRequestToDrivers } from "../configSocket/socketConfig"
 import { LinearGradient } from "expo-linear-gradient"
 import { Icon } from "react-native-elements"
 
@@ -32,7 +34,7 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
   const { dispatchOrigin } = useContext(DriverOriginContext)
   const user_id = useSelector((state) => state.auth.user?.user_id || "")
   const distanceTrip = useSelector((state) => state.location?.distance || "")
-  // console.log("Distance from Redux:", distanceTrip);
+  const insets = useSafeAreaInsets()
 
   const carData = route.params || {}
 
@@ -45,6 +47,16 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("Cash")
   const [lastFourDigits, setLastFourDigits] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+
+  // Calculate responsive height based on screen size and safe area
+  const getBottomSheetHeight = () => {
+    const minHeight = 400
+    const maxHeight = height * 0.85
+    const safeHeight = height - insets.top - insets.bottom
+    return Math.min(Math.max(safeHeight * 0.75, minHeight), maxHeight)
+  }
+
+  const bottomSheetHeight = getBottomSheetHeight()
 
   useEffect(() => {
     const focusListener = navigation.addListener("focus", () => {
@@ -83,37 +95,6 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
   }
 
   const formattedETA = formatETA(ETA)
-
-  // useEffect(() => {
-  //   if (selectedPaymentMethod === "Credit Card" && user_id) {
-  //     const controller = new AbortController()
-  //     const fetchRecipientData = async () => {
-  //       try {
-  //         const response = await axios.get(api + "recipient", {
-  //           params: { user_id: user_id },
-  //           signal: controller.signal,
-  //           timeout: 60000,
-  //         })
-
-  //         const recipient = response.data.recipients[0]
-  //         if (recipient) {
-  //           setLastFourDigits(recipient.last_four_digits)
-  //         }
-  //       } catch (error) {
-  //         if (!axios.isCancel(error)) {
-  //           console.error("Error fetching recipient data:", error)
-  //           Alert.alert("Error", "Could not fetch recipient data.")
-  //         }
-  //       }
-  //     }
-
-  //     const timer = setTimeout(fetchRecipientData, 1000)
-  //     return () => {
-  //       clearTimeout(timer)
-  //       controller.abort()
-  //     }
-  //   }
-  // }, [selectedPaymentMethod, user_id])
 
   const extractedData = {
     customerId: user_id,
@@ -156,7 +137,6 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
     if (selectedPaymentMethod) {
       setIsLoading(true)
       try {
-        // Prepare trip data to send to the backend
         let tripData = {
           driver_id: extractedData.driverId,
           paymentType: selectedPaymentMethod,
@@ -168,18 +148,15 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
           driverStatus: driverStatus,
         }
 
-        // Insert trip data into the backend (MySQL)
         const tripResponse = await axios.post(`${api}trips`, tripData, {
           timeout: 60000,
         })
 
-        // Update tripData with the generated tripId
         tripData = {
           ...tripData,
           tripId: tripResponse.data.tripId,
         }
 
-        // Insert payment data into the backend (MySQL)
         const paymentData = {
           paymentType: selectedPaymentMethod,
           amount: carData.price,
@@ -189,20 +166,11 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
         }
 
         if (selectedPaymentMethod === "Cash") {
-        await axios.post(api + "payment", paymentData)
+          await axios.post(api + "payment", paymentData)
         }
 
-        
-
-        // Send trip notification to driver via Socket.io with updated tripData
         emitTripRequestToDrivers(tripData, extractedData.driverId)
-
-        // Dispatch action to store updated trip data in Redux
         dispatch(setTripData(tripData))
-
-        
-
-        // Navigate to the next screen
         navigation.navigate("TripLoadingResponse")
       } catch (error) {
         console.error("Error saving trip data:", error)
@@ -219,8 +187,6 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
     Cash: require("../../assets/money.png"),
     "Credit Card": require("../../assets/mastercard.png"),
   }
-
-  const isFemale = carData?.gender?.toLowerCase() === "female"
 
   const imageUri = carData.driverPhoto
     ? carData.driverPhoto
@@ -254,7 +220,11 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
       <Pressable onPress={() => navigation.navigate("CarListingBottomSheet")} style={styles.overlay} />
 
       {isBlurVisible && (
-        <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View style={[styles.bottomSheet, { 
+          transform: [{ translateY: slideAnim }],
+          height: bottomSheetHeight,
+          maxHeight: height * 0.9
+        }]}>
           <LinearGradient colors={["#FFFFFF", "#F8FBFD"]} style={styles.gradientBackground}>
             <View style={styles.handleContainer}>
               <View style={styles.handle} />
@@ -267,84 +237,93 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
               </Pressable>
             </View>
 
-            <View style={styles.driverInfoContainer}>
-              <View style={styles.driverImageContainer}>
-                <Image source={{ uri: imageUri }} style={styles.driverImage} />
-                <View style={styles.statusIndicator} />
-              </View>
+            <ScrollView 
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={styles.driverInfoContainer}>
+                <View style={styles.driverImageContainer}>
+                  <Image source={{ uri: imageUri }} style={styles.driverImage} />
+                  <View style={styles.statusIndicator} />
+                </View>
 
-              <View style={styles.driverDetails}>
-                <Text style={styles.driverName}>{driverName}</Text>
-                {renderStars(driverRating)}
-                <View style={styles.vehicleInfo}>
-                  <Icon name="car" type="material-community" size={16} color="#0DCAF0" />
-                  <Text style={styles.vehicleText}>{classType || "Standard"}</Text>
+                <View style={styles.driverDetails}>
+                  <Text style={styles.driverName}>{driverName}</Text>
+                  {renderStars(driverRating)}
+                  <View style={styles.vehicleInfo}>
+                    <Icon name="car" type="material-community" size={16} color="#0DCAF0" />
+                    <Text style={styles.vehicleText}>{classType || "Standard"}</Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            <View style={styles.tripInfoContainer}>
-              <View style={styles.tripInfoItem}>
-                <Icon name="cash" type="material-community" size={20} color="#0DCAF0" />
-                <Text style={styles.tripInfoLabel}>Price</Text>
-                <Text style={styles.tripInfoValue}>R{price}</Text>
+              <View style={styles.tripInfoContainer}>
+                <View style={styles.tripInfoItem}>
+                  <Icon name="cash" type="material-community" size={20} color="#0DCAF0" />
+                  <Text style={styles.tripInfoLabel}>Price</Text>
+                  <Text style={styles.tripInfoValue}>R{price}</Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.tripInfoItem}>
+                  <Icon name="clock-outline" type="material-community" size={20} color="#0DCAF0" />
+                  <Text style={styles.tripInfoLabel}>ETA</Text>
+                  <Text style={styles.tripInfoValue}>{formattedETA}</Text>
+                </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={styles.paymentSection}>
+                <Text style={styles.sectionTitle}>Payment Method</Text>
 
-              <View style={styles.tripInfoItem}>
-                <Icon name="clock-outline" type="material-community" size={20} color="#0DCAF0" />
-                <Text style={styles.tripInfoLabel}>ETA</Text>
-                <Text style={styles.tripInfoValue}>{formattedETA}</Text>
-              </View>
-            </View>
-
-            <View style={styles.paymentSection}>
-              <Text style={styles.sectionTitle}>Payment Method</Text>
-
-              <View style={styles.paymentOptions}>
-                <Pressable
-                  style={[styles.paymentOption, selectedPaymentMethod === "Cash" && styles.selectedPaymentOption]}
-                  onPress={() => setSelectedPaymentMethod("Cash")}
-                >
-                  <Image source={paymentImages["Cash"]} style={styles.paymentImage} />
-                  <Text style={styles.paymentText}>Cash</Text>
-                  {selectedPaymentMethod === "Cash" && (
-                    <Icon name="check-circle" type="material-community" size={20} color="#0DCAF0" />
-                  )}
-                </Pressable>
-
-                <Pressable
-                  style={[
-                    styles.paymentOption,
-                    selectedPaymentMethod === "Credit Card" && styles.selectedPaymentOption,
-                  ]}
-                  onPress={() => setSelectedPaymentMethod("Credit Card")}
-                >
-                  <Image source={paymentImages["Credit Card"]} style={styles.paymentImage} />
-                  <View style={styles.cardDetails}>
-                    <Text style={styles.paymentText}>Credit Card</Text>
-                    {selectedPaymentMethod === "Credit Card" && lastFourDigits && (
-                      <Text style={styles.cardInfo}>**** {lastFourDigits}</Text>
+                <View style={styles.paymentOptions}>
+                  <Pressable
+                    style={[styles.paymentOption, selectedPaymentMethod === "Cash" && styles.selectedPaymentOption]}
+                    onPress={() => setSelectedPaymentMethod("Cash")}
+                  >
+                    <Image source={paymentImages["Cash"]} style={styles.paymentImage} />
+                    <Text style={styles.paymentText}>Cash</Text>
+                    {selectedPaymentMethod === "Cash" && (
+                      <Icon name="check-circle" type="material-community" size={20} color="#0DCAF0" />
                     )}
-                  </View>
-                  {selectedPaymentMethod === "Credit Card" && (
-                    <Icon name="check-circle" type="material-community" size={20} color="#0DCAF0" />
-                  )}
-                </Pressable>
-              </View>
-            </View>
+                  </Pressable>
 
-            <TouchableOpacity style={styles.confirmButton} onPress={handleButtonClick} disabled={isLoading}>
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Icon name="check-circle" type="material-community" size={20} color="#FFFFFF" />
-                  <Text style={styles.confirmText}>Confirm Pickup</Text>
-                </>
-              )}
-            </TouchableOpacity>
+                  <Pressable
+                    style={[
+                      styles.paymentOption,
+                      selectedPaymentMethod === "Credit Card" && styles.selectedPaymentOption,
+                    ]}
+                    onPress={() => setSelectedPaymentMethod("Credit Card")}
+                  >
+                    <Image source={paymentImages["Credit Card"]} style={styles.paymentImage} />
+                    <View style={styles.cardDetails}>
+                      <Text style={styles.paymentText}>Credit Card</Text>
+                      {selectedPaymentMethod === "Credit Card" && lastFourDigits && (
+                        <Text style={styles.cardInfo}>**** {lastFourDigits}</Text>
+                      )}
+                    </View>
+                    {selectedPaymentMethod === "Credit Card" && (
+                      <Icon name="check-circle" type="material-community" size={20} color="#0DCAF0" />
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.confirmButton} onPress={handleButtonClick} disabled={isLoading}>
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Icon name="check-circle" type="material-community" size={20} color="#FFFFFF" />
+                    <Text style={styles.confirmText}>Confirm Pickup</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </LinearGradient>
         </Animated.View>
       )}
@@ -375,12 +354,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 20,
-    height: height * 0.65,
   },
   gradientBackground: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
   },
   handleContainer: {
     alignItems: "center",
@@ -396,7 +372,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    marginBottom: 10,
   },
   headerText: {
     fontSize: 22,
@@ -410,6 +387,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 59, 48, 0.1)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   driverInfoContainer: {
     flexDirection: "row",
@@ -429,9 +413,9 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   driverImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: width < 375 ? 60 : 70,
+    height: width < 375 ? 60 : 70,
+    borderRadius: width < 375 ? 30 : 35,
     borderWidth: 2,
     borderColor: "#0DCAF0",
   },
@@ -450,7 +434,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   driverName: {
-    fontSize: 18,
+    fontSize: width < 375 ? 16 : 18,
     fontWeight: "600",
     color: "#0F172A",
     marginBottom: 4,
@@ -501,7 +485,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tripInfoValue: {
-    fontSize: 18,
+    fontSize: width < 375 ? 16 : 18,
     fontWeight: "600",
     color: "#0F172A",
     marginTop: 2,
@@ -531,6 +515,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
+    minHeight: 60,
   },
   selectedPaymentOption: {
     backgroundColor: "rgba(13, 202, 240, 0.05)",
@@ -553,6 +538,12 @@ const styles = StyleSheet.create({
     color: "#64748B",
     marginTop: 2,
   },
+  buttonContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 30,
+    paddingTop: 10,
+    backgroundColor: "#FFFFFF",
+  },
   confirmButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -565,6 +556,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+    minHeight: 56,
   },
   confirmText: {
     color: "#FFFFFF",

@@ -36,7 +36,7 @@ import { auth } from "../../FirebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import ProtectedScreen from "../WelcomeScreens/ProtectedScreen";
 // import ForgotPasswordScreen from "../WelcomeScreens/ForgotPasswordScreen";
-import DriverWallet from "../components/WalletDriver";
+// import DriverWallet from "../components/WalletDriver";
 import TripCancellationModal from "../components/TripCancelationModal";
 import CustomerChat from "../customerscreens/CustomerChat";
 import PaymentSuccess from "../components/payment-success";

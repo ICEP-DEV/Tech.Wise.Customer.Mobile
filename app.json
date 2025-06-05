@@ -56,6 +56,9 @@
       "googleMapsApiKey": "AIzaSyCW_3yyD7H0125SOsP-vABHG6BrSm47j-w",
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "a0efdafd-a6ea-4285-9b10-581923d5e344"
       }
     },
     "newArchEnabled": true
