@@ -48,7 +48,6 @@ export default function CreateAccount({ navigation }) {
       await axios.post(api + 'register', {
         name,
         email,
-        password,
         role: 'user',
         // gender,
         user_uid: response.user.uid,

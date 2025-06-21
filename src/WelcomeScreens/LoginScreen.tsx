@@ -101,7 +101,6 @@ const LoginScreen = ({ navigation }) => {
     try {
       const response = await axios.post(api + 'login', {
         email,
-        password,
       });
       console.log("user_id Response:", response.data);
 
