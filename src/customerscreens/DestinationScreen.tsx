@@ -278,6 +278,8 @@ const DestinationScreen = ({ navigation, route }) => {
   // hndle payment initiation and trip status changes
   useEffect(() => {
     if (tripStatusAccepted === "canceled") {
+      Alert.alert("Trip cancelled", "Choose a different driver.");
+
       navigation.navigate("RequestScreen", { driverId: driver_id });
 
       setTimeout(() => {

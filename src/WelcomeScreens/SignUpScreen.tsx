@@ -16,11 +16,6 @@ export default function CreateAccount({ navigation }) {
   // const [gender, setGender] = useState('');
 
   const signUp = async () => {
-    // if (!gender) {
-    //   alert('Please select your gender.');
-    //   return;
-    // }
-
     if (!email || !password || !name) {
       alert('Please fill in all fields');
       return;
@@ -28,40 +23,41 @@ export default function CreateAccount({ navigation }) {
 
     setLoading(true);
     try {
-      // Create user with email and password
+      // Step 1: Check if email exists
+      const checkResponse = await axios.post(api + 'check-email', { email });
+
+      if (checkResponse.data.exists) {
+        alert('Email already exists. Please use a different email.');
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Create user with email and password
       const response = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Update profile with the name
       await updateProfile(response.user, { displayName: name });
 
-      // Store user data in Firestore
       const userRef = doc(db, 'users', response.user.uid);
       await setDoc(userRef, {
         name,
         email,
-        // gender,
-        role: 'user', // Default role
+        role: 'user',
         createdAt: new Date().toISOString(),
       });
 
-      // Send user data to your backend
       await axios.post(api + 'register', {
         name,
         email,
         role: 'user',
-        // gender,
         user_uid: response.user.uid,
       });
 
-      // Send email verification
       await sendEmailVerification(response.user);
 
       alert('Account created successfully! Please check your email for verification before logging in.');
 
-      // Force logout to prevent auto-login after signup
       await signOut(auth);
 
-      // Redirect to LoginScreen
       navigation.replace('ProtectedScreen');
     } catch (error) {
       console.error('Sign up failed:', error.message);
@@ -71,9 +67,10 @@ export default function CreateAccount({ navigation }) {
     }
   };
 
+
   return (
     <ScrollView >
-     <Image
+      <Image
         source={require('../../assets/topCar.png')} // Update path as needed
         style={styles.carImage}
         resizeMode="fit"
@@ -323,12 +320,12 @@ const styles = StyleSheet.create({
     // marginTop: 8, // Adds some space between the slogan and the message
     paddingHorizontal: 20, // Padding for better readability
   },
-    carImage: {
-      position: 'absolute',
-      top: 0,
-      width: '100%',
-      height: 260, // Adjust height as needed
-      resizeMode: 'cover', // Ensures the image covers the area
-      // marginTop: StatusBar.currentHeight || 0, // Adjusts for status bar on Android
-    },
+  carImage: {
+    position: 'absolute',
+    top: 0,
+    width: '100%',
+    height: 260, // Adjust height as needed
+    resizeMode: 'cover', // Ensures the image covers the area
+    // marginTop: StatusBar.currentHeight || 0, // Adjusts for status bar on Android
+  },
 });
