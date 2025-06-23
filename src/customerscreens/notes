@@ -869,3 +869,38 @@ const DestinationScreen = ({ navigation, route }) => {
 };
 
 export default DestinationScreen;
+
+
+  const handleSubmit = async () => {
+    const requiredFields = ["flightDate", "numberOfPassengers", "departurePoint", "destination"]
+    const missingFields = requiredFields.filter((field) => !form[field])
+
+    if (missingFields.length > 0) {
+      Alert.alert("Missing Information", "Please fill in all required fields.")
+      return
+    }
+
+    try {
+      await axios.post(api + "helicopter_quotes", {
+        // Mocked
+        user_id: userId,
+        ...form,
+      })
+
+      Alert.alert("Quote Request Submitted", "We will contact you shortly with your helicopter charter quote!")
+
+      setForm({
+        flightDate: "",
+        numberOfPassengers: "",
+        passengerWeights: "",
+        luggageWeight: "",
+        departurePoint: "",
+        destination: "",
+        isReturnFlight: "",
+        waitingTime: "",
+      })
+    } catch (error) {
+      console.error("Error submitting quote:", error)
+      Alert.alert("Error", "Failed to submit quote. Please try again.")
+    }
+  }

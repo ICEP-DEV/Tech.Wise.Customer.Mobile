@@ -41,6 +41,10 @@ import TripCancellationModal from "../components/TripCancelationModal";
 import CustomerChat from "../customerscreens/CustomerChat";
 import PaymentSuccess from "../components/payment-success";
 import RideRatingScreen from "../customerscreens/RideRatingScreen";
+import BookingForm from "../NthomeAir/BookingForm";
+import BookingList from "../NthomeAir/BookingList";
+import BookingEdit from "../NthomeAir/BookingEdit";
+import BookingDetail from "../NthomeAir/BookingDetails";
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 const Tab = createBottomTabNavigator();
@@ -290,6 +294,11 @@ export default function RootNavigator() {
         <Stack.Screen name="CustomerChat" component={CustomerChat} options={{ headerShown: false }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="RideRatingScreen" component={RideRatingScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="BookingForm" component={BookingForm} options={{ headerShown: false }} />
+        <Stack.Screen name="BookingList" component={BookingList} options={{ headerShown: false }} />
+        <Stack.Screen name="BookingDetail" component={BookingDetail} options={{ headerShown: false }} />
+        <Stack.Screen name="BookingEdit" component={BookingEdit} options={{ headerShown: false }} />
+
 
 
         {/* Recent Places Bottom Sheet */}

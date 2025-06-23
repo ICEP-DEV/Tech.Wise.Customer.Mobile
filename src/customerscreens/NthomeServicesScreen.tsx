@@ -98,13 +98,14 @@ const NthomeServicesScreen = ({ navigation }) => {
   }
 
   const handleAirPress = () => {
-    Alert.alert(
-      "Coming Soon",
-      "NthomeAir service will be available soon!",
-      [{ text: "OK", onPress: () => console.log("OK Pressed") }]
-    )
+    // Alert.alert(
+    //   "Coming Soon",
+    //   "NthomeAir service will be available soon!",
+    //   [{ text: "OK", onPress: () => console.log("OK Pressed") }]
+    // )
+    navigation.navigate('BookingList')
   }
-
+ 
   const handleFoodPress = () => {
     Alert.alert(
       "Coming Soon",
@@ -181,7 +182,7 @@ const NthomeServicesScreen = ({ navigation }) => {
             <ServiceCard 
               title="NthomeAir" 
               description="Elevate your travel experience with premium air travel." 
-              isComingSoon={true}
+              isComingSoon={false}
               onPress={handleAirPress}
               index={1}
             />
