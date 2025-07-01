@@ -44,7 +44,7 @@ import RideRatingScreen from "../customerscreens/RideRatingScreen";
 import BookingForm from "../NthomeAir/BookingForm";
 import BookingList from "../NthomeAir/BookingList";
 import BookingEdit from "../NthomeAir/BookingEdit";
-import BookingDetail from "../NthomeAir/BookingDetails";
+import BookingDetails from "../NthomeAir/BookingDetails";
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 const Tab = createBottomTabNavigator();
@@ -152,7 +152,7 @@ function DrawerNavigator() {
         }}
       />
             <Drawer.Screen
-        name="Ride Rating"
+        name="RideRating"
         component={RideRatingScreen}
         options={{
           drawerIcon: ({ focused, size }) => (
@@ -296,7 +296,7 @@ export default function RootNavigator() {
         <Stack.Screen name="RideRatingScreen" component={RideRatingScreen} options={{ headerShown: false }} />
         <Stack.Screen name="BookingForm" component={BookingForm} options={{ headerShown: false }} />
         <Stack.Screen name="BookingList" component={BookingList} options={{ headerShown: false }} />
-        <Stack.Screen name="BookingDetail" component={BookingDetail} options={{ headerShown: false }} />
+        <Stack.Screen name="BookingDetails" component={BookingDetails} options={{ headerShown: false }} />
         <Stack.Screen name="BookingEdit" component={BookingEdit} options={{ headerShown: false }} />
 
 

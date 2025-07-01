@@ -8,19 +8,20 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  ScrollView,
-  TextInput, // Added TextInput for search
-  KeyboardAvoidingView, // Import KeyboardAvoidingView
-  Platform, // Import Platform
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
 } from "react-native"
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
-import { Icon } from "react-native-elements" // Import Icon for CustomDrawer
+import { Icon } from "react-native-elements"
 import axios from "axios"
-import { api } from "../../api" // Your API base URL
+import { api } from "../../api"
 import { useSelector } from "react-redux"
 import { useFocusEffect } from "@react-navigation/native"
 import { useCallback } from "react"
-import CustomDrawer from "../components/CustomDrawer" // Import CustomDrawer
+import CustomDrawer from "../components/CustomDrawer"
+import { Alert } from "react-native"
 
 const colors = {
   brandCyan: "#00B8D9",
@@ -30,6 +31,10 @@ const colors = {
   textSecondary: "#888",
   border: "#E0E0E0",
   background: "#F7FAFC",
+  error: "#E53935",
+  statusPending: "#FFC107", // Orange for pending
+  statusConfirmed: "#28A745", // Green for confirmed
+  statusCancelled: "#DC3545", // Red for cancelled
 }
 
 const InfoCard = ({ icon, title, description }) => (
@@ -47,14 +52,12 @@ const isSameDay = (d1, d2) =>
   d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate()
 
 const isSameWeek = (date, now) => {
-  // Get Monday of current week
   const monday = new Date(now)
   const day = monday.getDay()
   const diff = monday.getDate() - day + (day === 0 ? -6 : 1)
   monday.setDate(diff)
   monday.setHours(0, 0, 0, 0)
 
-  // Sunday of current week
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate() + 6)
   sunday.setHours(23, 59, 59, 999)
@@ -64,35 +67,50 @@ const isSameWeek = (date, now) => {
 
 const isSameMonth = (d1, d2) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth()
 
+const formatDateTime = (isoString) => {
+  if (!isoString) return "N/A"
+  try {
+    const date = new Date(isoString)
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })
+  } catch (e) {
+    console.error("Error formatting date:", e)
+    return "Invalid Date"
+  }
+}
+
 const BookingList = ({ navigation, route }) => {
-  const userId = route?.params?.userId
   const userIdGlobal = useSelector((state) => state.auth.user?.user_id)
 
   const [bookings, setBookings] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true) // Initialize loading to true
   const [filter, setFilter] = useState("all") // "all", "daily", "weekly", "monthly"
-  const [searchQuery, setSearchQuery] = useState("") // New state for search query
-  const [drawerOpen, setDrawerOpen] = useState(false) // State for drawer visibility
-  const toggleDrawer = () => setDrawerOpen(!drawerOpen) // Toggle function for drawer
+  const [searchQuery, setSearchQuery] = useState("")
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const toggleDrawer = () => setDrawerOpen(!drawerOpen)
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true)
       axios
         .get(api + "helicopter_quotes/" + userIdGlobal)
-        .then((res) => setBookings(res.data))
-        .catch(() => alert("Error loading bookings"))
+        .then((res) => setBookings(Array.isArray(res.data) ? res.data : []))
+        .catch(() => Alert.alert("Error", "Error loading bookings")) // Use Alert.alert for user feedback
         .finally(() => setLoading(false))
-    }, [userIdGlobal]), // Changed dependency to userIdGlobal
+    }, [userIdGlobal]),
   )
 
-  // Filter bookings based on filter state and search query
   const now = new Date()
   const filteredBookings = bookings.filter((booking) => {
     if (!booking.flightDate) return false
     const bookingDate = new Date(booking.flightDate)
 
-    // Apply date filter
     let dateMatch = true
     switch (filter) {
       case "daily":
@@ -105,10 +123,9 @@ const BookingList = ({ navigation, route }) => {
         dateMatch = isSameMonth(bookingDate, now)
         break
       default:
-        dateMatch = true // all
+        dateMatch = true
     }
 
-    // Apply search filter
     const searchMatch =
       searchQuery.toLowerCase() === "" ||
       booking.departurePoint.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -117,7 +134,6 @@ const BookingList = ({ navigation, route }) => {
     return dateMatch && searchMatch
   })
 
-  // Format date for display
   const formatDate = (dateStr) => {
     const dateObj = new Date(dateStr)
     return dateObj.toLocaleDateString(undefined, {
@@ -127,96 +143,134 @@ const BookingList = ({ navigation, route }) => {
     })
   }
 
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={toggleDrawer} style={styles.roundButton}>
-          <Icon type="material-community" name="menu" color={colors.textPrimary} size={30} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bookings</Text>
-        <View style={{ width: 50 }} /> {/* Placeholder for alignment */}
+  // Header component for FlatList
+  const ListHeader = () => (
+    <View style={styles.listHeaderContainer}>
+      <InfoCard
+        icon={<MaterialCommunityIcons name="information" size={24} color={colors.brandCyan} />}
+        title="Manage Your Bookings"
+        description="View all your flight bookings here. You can tap any booking to view details, edit, or cancel it. Use the button below to create a new booking anytime."
+      />
+
+      <InfoCard
+        icon={<Ionicons name="information-circle-outline" size={22} color={colors.brandCyan} />}
+        title="Booking Statuses"
+        description="Pending: Awaiting confirmation. Confirmed: Your booking is set. Cancelled: Booking has been cancelled."
+      />
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by departure or destination"
+        placeholderTextColor={colors.textSecondary}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
+
+      <View style={styles.filterContainer}>
+        {["all", "daily", "weekly", "monthly"].map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterButton, filter === f && styles.filterButtonActive]}
+            onPress={() => setFilter(f)}
+          >
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <InfoCard
-          icon={<MaterialCommunityIcons name="information" size={24} color={colors.brandCyan} />}
-          title="Manage Your Bookings"
-          description="View all your flight bookings here. You can tap any booking to view details, edit, or delete it. Use the button below to create a new booking anytime."
-        />
+    </View>
+  )
 
-        {/* Search Input */}
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by departure or destination"
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+  // Footer component for FlatList
+  const ListFooter = () => (
+    <TouchableOpacity
+      style={styles.addButton}
+      onPress={() => navigation.navigate("BookingForm", { userId: userIdGlobal })}
+      accessibilityLabel="Create new booking"
+    >
+      <Text style={styles.addButtonText}>+ New Booking</Text>
+    </TouchableOpacity>
+  )
 
-        {/* Filter Buttons */}
-        <View style={styles.filterContainer}>
-          {["all", "daily", "weekly", "monthly"].map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[styles.filterButton, filter === f && styles.filterButtonActive]}
-              onPress={() => setFilter(f)}
-            >
-              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.headerBar}>
+          <TouchableOpacity onPress={toggleDrawer} style={styles.roundButton}>
+            <Icon type="material-community" name="menu" color={colors.textPrimary} size={30} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Bookings</Text>
+          <View style={{ width: 50 }} />
         </View>
 
         {loading ? (
           <ActivityIndicator style={{ marginTop: 40 }} color={colors.brandCyan} size="large" />
-        ) : filteredBookings.length === 0 ? (
-          <Text style={styles.noBookings}>No bookings found.</Text>
         ) : (
           <FlatList
             data={filteredBookings}
             keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() => navigation.navigate("BookingDetail", { booking: item, userId: userIdGlobal })}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="airplane" size={20} color={colors.brandCyanDark} style={{ marginRight: 8 }} />
-                  <Text style={styles.title}>
-                    {item.departurePoint} → {item.destination}
-                  </Text>
-                </View>
-                <Text style={styles.date}>{formatDate(item.flightDate)}</Text>
-              </TouchableOpacity>
-            )}
-            scrollEnabled={false} // Because inside ScrollView
+            renderItem={({ item }) => {
+              const getStatusColor = (status) => {
+                switch (status) {
+                  case "Pending":
+                    return colors.statusPending
+                  case "Confirmed":
+                    return colors.statusConfirmed
+                  case "Cancelled":
+                    return colors.statusCancelled
+                  default:
+                    return colors.textSecondary
+                }
+              }
+
+              return (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => navigation.navigate("BookingDetails", { booking: item, userId: userIdGlobal })}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Ionicons name="airplane" size={20} color={colors.brandCyanDark} style={{ marginRight: 8 }} />
+                      <Text style={styles.title}>
+                        {item.departurePoint} → {item.destination}
+                      </Text>
+                    </View>
+                    <View style={styles.statusContainer}>
+                      <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.statuses) }]} />
+                      <Text style={styles.statusText}>{item.statuses}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.date}>Flight Date: {formatDate(item.flightDate)}</Text>
+                  {item.createdAt && <Text style={styles.date}>Booked On: {formatDateTime(item.createdAt)}</Text>}
+                </TouchableOpacity>
+              )
+            }}
+            ListHeaderComponent={ListHeader}
+            ListFooterComponent={ListFooter}
+            ListEmptyComponent={<Text style={styles.noBookings}>No bookings found.</Text>}
+            contentContainerStyle={styles.flatListContentContainer} // Apply padding here
           />
         )}
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate("BookingForm", { userId: userIdGlobal })} // Changed userIdGlobal to userId
-          accessibilityLabel="Create new booking"
-        >
-          <Text style={styles.addButtonText}>+ New Booking</Text>
-        </TouchableOpacity>
-      </ScrollView>
-      <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />
-    </KeyboardAvoidingView>
+        <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: colors.background,
-    flexGrow: 1,
+  flatListContentContainer: {
+    padding: 20, // Apply padding to the content container of FlatList
+    flexGrow: 1, // Ensure content takes up available space for proper scrolling
+  },
+  listHeaderContainer: {
+    marginBottom: 15, // Add some space below the header content
   },
   headerBar: {
-    // Added headerBar style
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -228,14 +282,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   headerTitle: {
-    // Added headerTitle style
     fontSize: 19,
     fontWeight: "700",
     color: colors.brandCyanDark,
     letterSpacing: 0.2,
   },
   roundButton: {
-    // Added roundButton style
     backgroundColor: "#fff",
     borderRadius: 30,
     width: 50,
@@ -276,7 +328,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   searchInput: {
-    // New style for search input
     height: 40,
     borderColor: colors.border,
     borderWidth: 1,
@@ -339,12 +390,37 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
-    marginTop: 20,
+    marginTop: 20, // Add margin top to separate from the last list item
   },
   addButtonText: {
     color: colors.white,
     fontSize: 16,
     fontWeight: "bold",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F0F0",
+    borderRadius: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 5,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textPrimary,
   },
 })
 

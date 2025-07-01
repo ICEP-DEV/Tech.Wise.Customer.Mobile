@@ -77,6 +77,8 @@ const DestinationScreen = ({ navigation, route }) => {
   const { originDriver = {} } = useContext(DriverOriginContext)
   const { origin = {} } = useContext(OriginContext)
   const { destination = {} } = useContext(DestinationContext)
+  console.log("DestinationScreen destination*************************:", destination);
+
 
   const [userOrigin] = useState({
     latitude: origin?.latitude || null,
@@ -87,7 +89,10 @@ const DestinationScreen = ({ navigation, route }) => {
     latitude: null,
     longitude: null,
   })
-
+  const [userDestination, setUserDestination] = useState({
+    latitude: null,
+    longitude: null,
+  })
   const [eta, setEta] = useState(null)
   const [distance, setDistance] = useState(null)
   const [etaTrip, setEtaTrip] = useState(null)
@@ -193,13 +198,22 @@ const DestinationScreen = ({ navigation, route }) => {
       setTripStatus("arrived")
     })
 
-    // Listen for when the trip is started
-    listenToTripStarted(async (data) => {
-      setTripStatus("started")
-      alert(`Your trip has been started! Trip ID: ${data.tripId}`)
 
+    // listener runs when trip starts
+    listenToTripStarted((data) => {
+      setTripStatus("started");
+      alert(`Your trip has been started! Trip ID: ${data.tripId}`);
+      console.log("Trip started data^^^^^^^^^^^^^^^^^^^^^^^^:", data);
 
-    })
+      if (destination?.latitude && destination?.longitude) {
+        setUserDestination({
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        });
+      } else {
+        console.warn("Destination from context is not ready or incomplete");
+      }
+    });
 
     // Listen for when the trip is ended
     // Listen for when the trip is ended
@@ -524,8 +538,9 @@ const DestinationScreen = ({ navigation, route }) => {
           {tripData?.driver_id && (
             <MapComponent
               driverLocation={driverLocation}
-              driverId={String(tripData.driver_id)}
+              // driverId={String(tripData.driver_id)}
               userOrigin={userOrigin}
+              userDestination={userDestination}
             />
           )}
         </View>

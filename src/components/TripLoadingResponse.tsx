@@ -210,16 +210,6 @@ const TripLoadingResponse = ({ navigation, route }) => {
             ]}
           />
 
-          <Animated.View
-            style={[
-              styles.loadingIconContainer,
-              {
-                transform: [{ scale: scaleRef.current }],
-              },
-            ]}
-          >
-            <ActivityIndicator size="large" color="#FFFFFF" />
-          </Animated.View>
 
           <Animated.Text
             style={[

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+"use client"
+
+import { useState } from "react"
 import {
   View,
   Text,
@@ -8,115 +10,119 @@ import {
   StatusBar,
   ScrollView,
   Dimensions,
-  Platform
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
-import CustomDrawer from "../components/CustomDrawer";
-import { Icon } from "react-native-elements";
+  Platform,
+  Animated,
+} from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { Ionicons } from "@expo/vector-icons"
+import CustomDrawer from "../components/CustomDrawer"
+import { Icon } from "react-native-elements"
+import { LinearGradient } from "expo-linear-gradient"
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window")
 
 const SupportScreen = ({ navigation }) => {
   const handleEmailSupport = () => {
-    const email = "support@example.com"; // Replace with your support email
-    const subject = "Support Request";
-    const body = "Hi, I need help with...";
-    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const email = "support@example.com" // Replace with your support email
+    const subject = "Support Request"
+    const body = "Hi, I need help with..."
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 
-    Linking.openURL(url).catch((err) =>
-      console.error("Failed to open email client:", err)
-    );
-  };
+    Linking.openURL(url).catch((err) => console.error("Failed to open email client:", err))
+  }
 
   const handleCallSupport = () => {
-    const phone = "123456789"; // Replace with your support phone number
-    Linking.openURL(`tel:${phone}`).catch((err) =>
-      console.error("Failed to open phone dialer:", err)
-    );
-  };
+    const phone = "123456789" // Replace with your support phone number
+    Linking.openURL(`tel:${phone}`).catch((err) => console.error("Failed to open phone dialer:", err))
+  }
 
   const handleLiveChat = () => {
-    const chatUrl = "https://example.com/live-chat"; // Replace with your live chat URL
-    Linking.openURL(chatUrl).catch((err) =>
-      console.error("Failed to open live chat:", err)
-    );
-  };
+    const chatUrl = "https://example.com/live-chat" // Replace with your live chat URL
+    Linking.openURL(chatUrl).catch((err) => console.error("Failed to open live chat:", err))
+  }
 
   const supportOptions = [
     {
-      id: 'email',
-      title: 'Email Support',
-      description: 'Get help via email within 24 hours',
-      icon: 'mail-outline',
-      iconColor: '#0DCAF0',
-      onPress: handleEmailSupport
+      id: "email",
+      title: "Email Support",
+      description: "Get help via email within 24 hours",
+      icon: "mail-outline",
+      iconColor: "#0DCAF0",
+      onPress: handleEmailSupport,
     },
     {
-      id: 'call',
-      title: 'Call Support',
-      description: 'Speak directly with our support team',
-      icon: 'call-outline',
-      iconColor: '#0DCAF0',
-      onPress: handleCallSupport
+      id: "call",
+      title: "Call Support",
+      description: "Speak directly with our support team",
+      icon: "call-outline",
+      iconColor: "#0DCAF0",
+      onPress: handleCallSupport,
     },
     {
-      id: 'chat',
-      title: 'Live Chat',
-      description: 'Chat with our support agents in real-time',
-      icon: 'chatbubble-ellipses-outline',
-      iconColor: '#0DCAF0',
-      onPress: handleLiveChat
-    }
-  ];
+      id: "chat",
+      title: "Live Chat",
+      description: "Chat with our support agents in real-time",
+      icon: "chatbubble-ellipses-outline",
+      iconColor: "#0DCAF0",
+      onPress: handleLiveChat,
+    },
+  ]
 
   const faqItems = [
     {
-      question: 'How do I reset my password?',
-      answer: 'Go to the login screen, click "Forgot Password," and follow the instructions sent to your email.'
+      question: "How do I reset my password?",
+      answer: 'Go to the login screen, click "Forgot Password," and follow the instructions sent to your email.',
     },
     {
-      question: 'How do I update my payment method?',
-      answer: 'Navigate to the "Payment Settings" in your profile and update your details. Changes will be applied immediately.'
+      question: "How do I update my payment method?",
+      answer:
+        'Navigate to the "Payment Settings" in your profile and update your details. Changes will be applied immediately.',
     },
     {
-      question: 'Can I change my username?',
-      answer: 'Yes, you can change your username once every 30 days in your account settings.'
+      question: "Can I change my username?",
+      answer: "Yes, you can change your username once every 30 days in your account settings.",
     },
     {
-      question: 'How do I report a problem?',
-      answer: 'Use any of our support channels above or go to Settings > Help > Report a Problem.'
-    }
-  ];
+      question: "How do I report a problem?",
+      answer: "Use any of our support channels above or go to Settings > Help > Report a Problem.",
+    },
+  ]
   const [drawerOpen, setDrawerOpen] = useState(false)
   const toggleDrawer = () => setDrawerOpen(!drawerOpen)
+  const [scrollY] = useState(new Animated.Value(0))
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor="#0DCAF0" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
-          <Icon type="material-community" name="menu" color="#0F172A" size={24} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Driver Dashboard</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <Animated.View style={styles.header}>
+        <LinearGradient
+          colors={["#0DCAF0", "#0AA8CC"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+              <Icon type="material-community" name="menu" color="#fff" size={22} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Support</Text>
+            <TouchableOpacity style={styles.notificationButton}>
+              <Icon type="material-community" name="lifebuoy" color="#fff" size={22} />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <View style={styles.heroIconContainer}>
             <Ionicons name="help-buoy" size={40} color="#0DCAF0" />
           </View>
           <Text style={styles.heroTitle}>How can we help you?</Text>
-          <Text style={styles.heroSubtitle}>
-            Choose one of our support channels below or browse our FAQ
-          </Text>
+          <Text style={styles.heroSubtitle}>Choose one of our support channels below or browse our FAQ</Text>
         </View>
 
         {/* Support Options */}
@@ -125,12 +131,7 @@ const SupportScreen = ({ navigation }) => {
 
           <View style={styles.optionsContainer}>
             {supportOptions.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={styles.optionCard}
-                onPress={option.onPress}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity key={option.id} style={styles.optionCard} onPress={option.onPress} activeOpacity={0.7}>
                 <View style={styles.optionIconContainer}>
                   <Ionicons name={option.icon} size={28} color={option.iconColor} />
                 </View>
@@ -150,13 +151,7 @@ const SupportScreen = ({ navigation }) => {
 
           <View style={styles.faqContainer}>
             {faqItems.map((item, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.faqItem,
-                  index < faqItems.length - 1 && styles.faqItemBorder
-                ]}
-              >
+              <View key={index} style={[styles.faqItem, index < faqItems.length - 1 && styles.faqItemBorder]}>
                 <View style={styles.faqQuestionRow}>
                   <View style={styles.faqBullet}>
                     <Text style={styles.faqBulletText}>Q</Text>
@@ -173,60 +168,66 @@ const SupportScreen = ({ navigation }) => {
 
         {/* Additional Help */}
         <View style={styles.additionalHelpContainer}>
-          <Text style={styles.additionalHelpText}>
-            Still need help? Our support team is available 24/7
-          </Text>
-          <TouchableOpacity
-            style={styles.additionalHelpButton}
-            onPress={handleEmailSupport}
-          >
+          <Text style={styles.additionalHelpText}>Still need help? Our support team is available 24/7</Text>
+          <TouchableOpacity style={styles.additionalHelpButton} onPress={handleEmailSupport}>
             <Text style={styles.additionalHelpButtonText}>Contact Support</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-      <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />
-
+      {drawerOpen && (
+        <View style={styles.drawerOverlay}>
+          <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />
+        </View>
+      )}
     </SafeAreaView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   header: {
-    backgroundColor: '#0DCAF0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    width: "100%",
+    zIndex: 10,
   },
-  backButton: {
+  headerGradient: {
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  menuButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginRight: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    left: 10,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
   },
   scrollContent: {
     paddingBottom: 30,
   },
   heroSection: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 30,
     paddingHorizontal: 20,
   },
@@ -234,24 +235,24 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(13, 202, 240, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(13, 202, 240, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 16,
   },
   heroTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#212529',
+    fontWeight: "bold",
+    color: "#212529",
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   heroSubtitle: {
     fontSize: 16,
-    color: '#6c757d',
-    textAlign: 'center',
+    color: "#6c757d",
+    textAlign: "center",
     lineHeight: 22,
-    maxWidth: '80%',
+    maxWidth: "80%",
   },
   sectionContainer: {
     marginTop: 20,
@@ -259,34 +260,34 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212529',
+    fontWeight: "bold",
+    color: "#212529",
     marginBottom: 16,
   },
   optionsContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
   },
   optionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f3f5',
+    borderBottomColor: "#f1f3f5",
   },
   optionIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(13, 202, 240, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(13, 202, 240, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
   },
   optionContent: {
@@ -294,20 +295,20 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#212529',
+    fontWeight: "600",
+    color: "#212529",
     marginBottom: 4,
   },
   optionDescription: {
     fontSize: 14,
-    color: '#6c757d',
+    color: "#6c757d",
   },
   faqContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -317,33 +318,33 @@ const styles = StyleSheet.create({
   },
   faqItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f3f5',
+    borderBottomColor: "#f1f3f5",
   },
   faqQuestionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginBottom: 8,
   },
   faqBullet: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#0DCAF0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#0DCAF0",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
     marginTop: 2,
   },
   faqBulletText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
     fontSize: 14,
   },
   faqQuestion: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#212529',
+    fontWeight: "600",
+    color: "#212529",
     lineHeight: 22,
   },
   faqAnswerContainer: {
@@ -351,44 +352,45 @@ const styles = StyleSheet.create({
   },
   faqAnswer: {
     fontSize: 15,
-    color: '#6c757d',
+    color: "#6c757d",
     lineHeight: 22,
   },
   additionalHelpContainer: {
     marginTop: 30,
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 16,
   },
   additionalHelpText: {
     fontSize: 15,
-    color: '#6c757d',
-    textAlign: 'center',
+    color: "#6c757d",
+    textAlign: "center",
     marginBottom: 16,
   },
   additionalHelpButton: {
-    backgroundColor: '#0DCAF0',
+    backgroundColor: "#0DCAF0",
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
   additionalHelpButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
     fontSize: 16,
   },
-  menuButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
+  drawerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000, // Ensure this is higher than any other zIndex
+    backgroundColor: "rgba(0,0,0,0.5)", // Optional: adds a semi-transparent background dimming
   },
-});
+})
 
-export default SupportScreen;
+export default SupportScreen

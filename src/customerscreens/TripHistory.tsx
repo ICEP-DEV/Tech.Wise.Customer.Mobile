@@ -11,12 +11,15 @@ import {
   Dimensions,
   SafeAreaView,
   FlatList,
+  Platform,
 } from "react-native"
 import Icon from "react-native-vector-icons/Feather"
 import CustomDrawer from "../components/CustomDrawer"
 import { useSelector } from "react-redux"
 import axios from "axios"
 import { api } from "../../api"
+// Import LinearGradient
+import { LinearGradient } from "expo-linear-gradient"
 
 const { width } = Dimensions.get("window")
 
@@ -53,8 +56,7 @@ export default function MyRidesScreen({ navigation }) {
   const toggleDrawer = () => setDrawerOpen(!drawerOpen)
   const userId = useSelector((state) => state.auth.user.user_id)
   const customerId = userId || null
-  console.log("Customer ID:", customerId);
-
+  console.log("Customer ID:", customerId)
 
   const fetchTrips = async (status) => {
     try {
@@ -133,7 +135,7 @@ export default function MyRidesScreen({ navigation }) {
 
   // Render trip item
   const renderTripItem = ({ item }) => (
-    <TouchableOpacity style={styles.tripCard} onPress={() => navigation.navigate("TripDetails", { trip: item })}>
+    <TouchableOpacity style={styles.tripCard} onPress={() => navigation.navigate("TripDetails", { tripId: item.id })}>
       <View style={styles.tripHeader}>
         <View style={styles.tripIdContainer}>
           <Text style={styles.tripIdLabel}>Trip ID</Text>
@@ -211,15 +213,28 @@ export default function MyRidesScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      {/* Update StatusBar */}
+      <StatusBar barStyle="light-content" backgroundColor="#0DCAF0" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleDrawer} style={styles.roundButton}>
-          <Icon name="menu" color="#000000" size={30} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Rides</Text>
-      </View>
+      <Animated.View style={styles.header}>
+        <LinearGradient
+          colors={["#0DCAF0", "#0AA8CC"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+              <Icon name="menu" color="#fff" size={22} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Rides</Text>
+            <TouchableOpacity style={styles.notificationButton}>
+              <Icon name="navigation" color="#fff" size={22} />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
       {/* Tab navigation */}
       <View style={styles.tabContainer}>
@@ -325,7 +340,13 @@ export default function MyRidesScreen({ navigation }) {
       <View style={styles.bottomIndicatorContainer}>
         <View style={styles.bottomIndicator} />
       </View>
-      <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />
+
+      {/* Custom Drawer - Wrapped in an overlay View */}
+      {drawerOpen && (
+        <View style={styles.drawerOverlay}>
+          <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />
+        </View>
+      )}
     </SafeAreaView>
   )
 }
@@ -342,34 +363,46 @@ function EmptyState({ iconName, title, description }) {
   )
 }
 
+// Update styles object
 const styles = StyleSheet.create({
   container: {
-    top: 30,
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
   header: {
-
-    backgroundColor: "#ffffff",
+    width: "100%",
+    zIndex: 10,
+  },
+  headerGradient: {
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 20,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    paddingVertical: 16,
   },
-  backButton: {
-    padding: 8,
+  menuButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: "600",
-    marginLeft: 16,
-    color: "#333",
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
   },
   tabContainer: {
     paddingHorizontal: 16,
@@ -534,19 +567,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ccc",
     borderRadius: 2,
   },
-  roundButton: {
-    backgroundColor: "#fff",
-    borderRadius: 30,
-    width: 50,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
   // Trip card styles
   tripsList: {
     paddingVertical: 16,
@@ -681,5 +701,14 @@ const styles = StyleSheet.create({
   cancellationText: {
     fontSize: 14,
     color: "#333",
+  },
+  drawerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000, // Ensure this is higher than any other zIndex
+    backgroundColor: "rgba(0,0,0,0.5)", // Optional: adds a semi-transparent background dimming
   },
 })

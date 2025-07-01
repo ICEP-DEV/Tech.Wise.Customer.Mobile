@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useCallback } from "react"
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import axios from "axios"
 import { api } from "../../api"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, FontAwesome } from "@expo/vector-icons"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { useFocusEffect } from "@react-navigation/native"
 
 const colors = {
   brandCyan: "#00B8D9",
@@ -29,6 +31,7 @@ const colors = {
   background: "#F7FAFC",
   error: "#E53935",
   iconMuted: "#B6D7E5",
+  warning: "#FFC107", // Added for warning messages
 }
 
 const InfoCard = ({ icon, title, description }) => (
@@ -61,12 +64,32 @@ const BookingEdit = ({ route, navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current
   const slideAnim = useRef(new Animated.Value(30)).current
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
-    ]).start()
-  }, [])
+  // Calculate if the booking is editable (within 2 hours of creation)
+  const isBookingEditable = useCallback(() => {
+    if (!booking?.createdAt) return false // If no creation date, assume not editable or handle as error
+    const bookingCreationTime = new Date(booking.createdAt).getTime()
+    const twoHoursInMs = 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+    return Date.now() - bookingCreationTime < twoHoursInMs
+  }, [booking?.createdAt])
+
+  const [canEdit, setCanEdit] = useState(isBookingEditable())
+
+  useFocusEffect(
+    useCallback(() => {
+      // Re-initialize animation
+      fadeAnim.setValue(0)
+      slideAnim.setValue(30)
+
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
+      ]).start()
+
+      // Reset form with new data if available
+      setForm({ ...route?.params?.booking })
+      setCanEdit(isBookingEditable()) // Re-evaluate editability on focus
+    }, [route?.params?.booking, isBookingEditable]),
+  )
 
   const handleChange = (name, value) => setForm({ ...form, [name]: value })
   const handleFocus = (inputName) => setFocused(inputName)
@@ -81,6 +104,11 @@ const BookingEdit = ({ route, navigation }) => {
   }
 
   const handleUpdate = async () => {
+    if (!canEdit) {
+      Alert.alert("Editing Not Allowed", "You can only edit your booking within 2 hours of creation.")
+      return
+    }
+
     const requiredFields = ["flightDate", "numberOfPassengers", "departurePoint", "destination"]
     const missingFields = requiredFields.filter((field) => !form[field])
     if (missingFields.length > 0) {
@@ -91,7 +119,7 @@ const BookingEdit = ({ route, navigation }) => {
     try {
       await axios.put(api + `helicopter_quotes/${booking.id}`, { ...form, user_id: userId })
       Alert.alert("Success", "Booking updated!")
-      navigation.goBack()
+      navigation.navigate("BookingDetail", { booking: { ...booking, ...form }, userId }) // Pass updated booking data
     } catch {
       Alert.alert("Error", "Could not update booking.")
     }
@@ -112,142 +140,171 @@ const BookingEdit = ({ route, navigation }) => {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.roundButton}>
-          <Ionicons name="arrow-back" size={30} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Booking</Text>
-        <View style={{ width: 50 }} /> {/* Placeholder for alignment */}
-      </View>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.introCard}>
-          <Text style={styles.introTitle}>Modify Your Flight</Text>
-          <Text style={styles.introDescription}>Update the details of your existing flight booking below.</Text>
-        </View>
-        <InfoCard
-          icon={<Ionicons name="information-circle-outline" size={22} color={colors.brandCyan} />}
-          title="Review Carefully"
-          description="Ensure all changes are accurate before saving to avoid discrepancies."
-        />
-        <Animated.View style={[styles.formCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.formHeader}>
-            <FontAwesome5 name="plane" size={22} color={colors.brandCyanDark} style={{ marginRight: 10 }} />
-            <Text style={styles.formHeading}>Flight Details</Text>
-          </View>
-          {/* Trip Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Trip Information</Text>
-            <TouchableOpacity style={styles.inputGroupFlat} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
-              <FontAwesome name="calendar" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-              <Text style={[styles.input, form.flightDate ? styles.inputFilled : { color: colors.textPlaceholder }]}>
-                {form.flightDate ? formatDate(form.flightDate) : "Flight Date"}
-              </Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={form.flightDate ? new Date(form.flightDate) : new Date()}
-                mode="date"
-                display="default"
-                onChange={handleDateChange}
-                minimumDate={new Date()}
-              />
-            )}
-            <Text style={styles.helperText}>Tap to select your preferred departure date.</Text>
-            <View style={styles.inputGroupFlat}>
-              <Ionicons name="people" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-              <TextInput
-                placeholder="Number of Passengers *"
-                placeholderTextColor={colors.textPlaceholder}
-                keyboardType="numeric"
-                style={getInputStyle("numberOfPassengers")}
-                value={form.numberOfPassengers?.toString()}
-                onChangeText={(text) => handleChange("numberOfPassengers", text)}
-                onFocus={() => handleFocus("numberOfPassengers")}
-                onBlur={handleBlur}
-                accessibilityLabel="Number of Passengers"
-              />
-            </View>
-            <Text style={styles.helperText}>Maximum: 6 per flight.</Text>
-          </View>
-          {/* Weights Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Weight Information</Text>
-            <View style={styles.inputGroupFlat}>
-              <MaterialCommunityIcons name="weight" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-              <TextInput
-                placeholder="Passenger Weights (comma separated)"
-                placeholderTextColor={colors.textPlaceholder}
-                style={getInputStyle("passengerWeights")}
-                value={form.passengerWeights}
-                onChangeText={(text) => handleChange("passengerWeights", text)}
-                onFocus={() => handleFocus("passengerWeights")}
-                onBlur={handleBlur}
-                accessibilityLabel="Passenger Weights"
-              />
-            </View>
-            <Text style={styles.helperText}>E.g., 80, 75, 90</Text>
-            <View style={styles.inputGroupFlat}>
-              <MaterialCommunityIcons name="bag-checked" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-              <TextInput
-                placeholder="Total Luggage Weight (kg)"
-                placeholderTextColor={colors.textPlaceholder}
-                keyboardType="numeric"
-                style={getInputStyle("luggageWeight")}
-                value={form.luggageWeight}
-                onChangeText={(text) => handleChange("luggageWeight", text)}
-                onFocus={() => handleFocus("luggageWeight")}
-                onBlur={handleBlur}
-                accessibilityLabel="Total Luggage Weight"
-              />
-            </View>
-            <Text style={styles.helperText}>Estimate if unsure.</Text>
-          </View>
-          {/* Route Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Route</Text>
-            <View style={styles.inputGroupFlat}>
-              <Ionicons name="location" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-              <TextInput
-                placeholder="Departure Point *"
-                placeholderTextColor={colors.textPlaceholder}
-                style={getInputStyle("departurePoint")}
-                value={form.departurePoint}
-                onChangeText={(text) => handleChange("departurePoint", text)}
-                onFocus={() => handleFocus("departurePoint")}
-                onBlur={handleBlur}
-                accessibilityLabel="Departure Point"
-              />
-            </View>
-            <Text style={styles.helperText}>City, landmark, or airport location.</Text>
-            <View style={styles.inputGroupFlat}>
-              <Ionicons name="flag" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-              <TextInput
-                placeholder="Destination *"
-                placeholderTextColor={colors.textPlaceholder}
-                style={getInputStyle("destination")}
-                value={form.destination}
-                onChangeText={(text) => handleChange("destination", text)}
-                onFocus={() => handleFocus("destination")}
-                onBlur={handleBlur}
-                accessibilityLabel="Destination"
-              />
-            </View>
-            <Text style={styles.helperText}>Where would you like to go?</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={handleUpdate}
-            accessibilityLabel="Save flight booking changes"
-          >
-            <Text style={styles.submitText}>Save Changes</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.headerBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.roundButton}>
+            <Ionicons name="arrow-back" size={30} color={colors.textPrimary} />
           </TouchableOpacity>
-        </Animated.View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <Text style={styles.headerTitle}>Edit Booking</Text>
+          <View style={{ width: 50 }} /> {/* Placeholder for alignment */}
+        </View>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View style={styles.introCard}>
+            <Text style={styles.introTitle}>Modify Your Flight</Text>
+            <Text style={styles.introDescription}>Update the details of your existing flight booking below.</Text>
+          </View>
+          <InfoCard
+            icon={<Ionicons name="information-circle-outline" size={22} color={colors.brandCyan} />}
+            title="Review Carefully"
+            description="Ensure all changes are accurate before saving to avoid discrepancies."
+          />
+          <InfoCard
+            icon={<MaterialCommunityIcons name="clock-alert-outline" size={22} color={colors.warning} />}
+            title="Limited Editing Window"
+            description="You can only edit your booking within 2 hours of its creation. After this period, please contact support for any changes."
+          />
+          <Animated.View style={[styles.formCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.formHeader}>
+              <FontAwesome5 name="plane" size={22} color={colors.brandCyanDark} style={{ marginRight: 10 }} />
+              <Text style={styles.formHeading}>Flight Details</Text>
+            </View>
+            {/* Trip Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Trip Information</Text>
+              <TouchableOpacity
+                style={styles.inputGroupFlat}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.8}
+                disabled={!canEdit} // Disable date picker if not editable
+              >
+                <FontAwesome name="calendar" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+                <Text style={[styles.input, form.flightDate ? styles.inputFilled : { color: colors.textPlaceholder }]}>
+                  {form.flightDate ? formatDate(form.flightDate) : "Flight Date"}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={form.flightDate ? new Date(form.flightDate) : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                />
+              )}
+              <Text style={styles.helperText}>Tap to select your preferred departure date.</Text>
+              <View style={styles.inputGroupFlat}>
+                <Ionicons name="people" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Number of Passengers *"
+                  placeholderTextColor={colors.textPlaceholder}
+                  keyboardType="numeric"
+                  style={getInputStyle("numberOfPassengers")}
+                  value={form.numberOfPassengers?.toString()}
+                  onChangeText={(text) => handleChange("numberOfPassengers", text)}
+                  onFocus={() => handleFocus("numberOfPassengers")}
+                  onBlur={handleBlur}
+                  accessibilityLabel="Number of Passengers"
+                  editable={canEdit} // Disable input if not editable
+                />
+              </View>
+              <Text style={styles.helperText}>Maximum: 6 per flight.</Text>
+            </View>
+            {/* Weights Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Weight Information</Text>
+              <View style={styles.inputGroupFlat}>
+                <MaterialCommunityIcons name="weight" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Passenger Weights (comma separated)"
+                  placeholderTextColor={colors.textPlaceholder}
+                  style={getInputStyle("passengerWeights")}
+                  value={form.passengerWeights}
+                  onChangeText={(text) => handleChange("passengerWeights", text)}
+                  onFocus={() => handleFocus("passengerWeights")}
+                  onBlur={handleBlur}
+                  accessibilityLabel="Passenger Weights"
+                  editable={canEdit} // Disable input if not editable
+                />
+              </View>
+              <Text style={styles.helperText}>E.g., 80, 75, 90</Text>
+              <View style={styles.inputGroupFlat}>
+                <MaterialCommunityIcons
+                  name="bag-checked"
+                  size={16}
+                  color={colors.iconMuted}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  placeholder="Total Luggage Weight (kg)"
+                  placeholderTextColor={colors.textPlaceholder}
+                  keyboardType="numeric"
+                  style={getInputStyle("luggageWeight")}
+                  value={form.luggageWeight}
+                  onChangeText={(text) => handleChange("luggageWeight", text)}
+                  onFocus={() => handleFocus("luggageWeight")}
+                  onBlur={handleBlur}
+                  accessibilityLabel="Total Luggage Weight"
+                  editable={canEdit} // Disable input if not editable
+                />
+              </View>
+              <Text style={styles.helperText}>Estimate if unsure.</Text>
+            </View>
+            {/* Route Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Route</Text>
+              <View style={styles.inputGroupFlat}>
+                <Ionicons name="location" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Departure Point *"
+                  placeholderTextColor={colors.textPlaceholder}
+                  style={getInputStyle("departurePoint")}
+                  value={form.departurePoint}
+                  onChangeText={(text) => handleChange("departurePoint", text)}
+                  onFocus={() => handleFocus("departurePoint")}
+                  onBlur={handleBlur}
+                  accessibilityLabel="Departure Point"
+                  editable={canEdit} // Disable input if not editable
+                />
+              </View>
+              <Text style={styles.helperText}>City, landmark, or airport location.</Text>
+              <View style={styles.inputGroupFlat}>
+                <Ionicons name="flag" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Destination *"
+                  placeholderTextColor={colors.textPlaceholder}
+                  style={getInputStyle("destination")}
+                  value={form.destination}
+                  onChangeText={(text) => handleChange("destination", text)}
+                  onFocus={() => handleFocus("destination")}
+                  onBlur={handleBlur}
+                  accessibilityLabel="Destination"
+                  editable={canEdit} // Disable input if not editable
+                />
+              </View>
+              <Text style={styles.helperText}>Where would you like to go?</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.submitButton, !canEdit && styles.submitButtonDisabled]}
+              onPress={handleUpdate}
+              accessibilityLabel="Save flight booking changes"
+              disabled={!canEdit} // Disable button if not editable
+            >
+              <Text style={styles.submitText}>Save Changes</Text>
+            </TouchableOpacity>
+            {!canEdit && (
+              <Text style={styles.editDisabledMessage}>
+                Editing is disabled as more than 2 hours have passed since booking creation. Please contact support for
+                assistance.
+              </Text>
+            )}
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   )
 }
 
@@ -417,11 +474,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
+  submitButtonDisabled: {
+    backgroundColor: "#B0B0B0", // Grey out when disabled
+    shadowColor: "transparent",
+    elevation: 0,
+  },
   submitText: {
     color: colors.white,
     fontSize: 17,
     fontWeight: "bold",
     letterSpacing: 0.3,
+  },
+  editDisabledMessage: {
+    fontSize: 13,
+    color: colors.error,
+    textAlign: "center",
+    marginTop: 10,
+    fontWeight: "500",
   },
 })
 

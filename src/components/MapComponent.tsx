@@ -44,7 +44,7 @@ const MapComponent = ({ userOrigin, userDestination, driverLocation }) => {
   const centerMap = useCallback(() => {
     if (!mapRef.current) return
 
-    if (driverLocation?.latitude && driverLocation?.longitude) {
+    if (driverLocation?.latitude && driverLocation?.longitude) { 
       mapRef.current.animateToRegion({
         latitude: driverLocation.latitude,
         longitude: driverLocation.longitude,

@@ -9,18 +9,19 @@ const TripCancellationModal = ({ isVisible, onClose, onCancel }) => {
   const [customReason, setCustomReason] = useState("");
 
   const cancellationReasons = [
-    "Driver is late",
-    "Changed my mind",
-    "Accident or emergency",
-    "Found another driver",
+    "Driver is taking too long",
+    "I no longer need a ride",
+    "Plans have changed",
+    "Booked another ride elsewhere",
     "Other",
   ];
+
 
   const handleCancel = () => {
     if (selectedReason) {
       // If "Other" is selected and there's a custom reason, use it
       const reasonToSend = selectedReason === "Other" ? customReason : selectedReason;
-      
+
       if (reasonToSend) {
         onCancel(reasonToSend); // Pass the reason to the parent
         onClose(); // Close the modal after cancellation
@@ -35,7 +36,7 @@ const TripCancellationModal = ({ isVisible, onClose, onCancel }) => {
   const renderReasonItem = ({ item }) => (
     <TouchableOpacity
       style={[
-        styles.reasonItem, 
+        styles.reasonItem,
         selectedReason === item && styles.selectedReasonItem
       ]}
       onPress={() => {
@@ -66,11 +67,11 @@ const TripCancellationModal = ({ isVisible, onClose, onCancel }) => {
           <View style={styles.headerBar}>
             <View style={styles.headerHandle} />
           </View>
-          
+
           <View style={styles.contentContainer}>
             <Text style={styles.title}>Why are you cancelling the trip?</Text>
             <Text style={styles.subtitle}>Please select a reason below</Text>
-            
+
             <FlatList
               data={cancellationReasons}
               renderItem={renderReasonItem}
@@ -95,19 +96,19 @@ const TripCancellationModal = ({ isVisible, onClose, onCancel }) => {
             )}
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={styles.cancelButton} 
+              <TouchableOpacity
+                style={styles.cancelButton}
                 onPress={onClose}
                 activeOpacity={0.8}
               >
                 <Text style={styles.cancelButtonText}>Keep Trip</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={[
                   styles.confirmButton,
                   !selectedReason && styles.disabledButton
-                ]} 
+                ]}
                 onPress={handleCancel}
                 disabled={!selectedReason}
                 activeOpacity={0.8}
