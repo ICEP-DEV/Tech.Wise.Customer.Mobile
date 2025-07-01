@@ -230,7 +230,7 @@ export default function MyRidesScreen({ navigation }) {
             </TouchableOpacity>
             <Text style={styles.headerTitle}>My Rides</Text>
             <TouchableOpacity style={styles.notificationButton}>
-              <Icon name="navigation" color="#fff" size={22} />
+              <Icon name="bell" color="#fff" size={22} />
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -267,6 +267,48 @@ export default function MyRidesScreen({ navigation }) {
 
       {/* Content area */}
       <View style={styles.content}>
+        {/* Information Section */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoCard}>
+            <View style={styles.infoIconContainer}>
+              <Icon name="info" size={20} color="#0DCAF0" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Your Ride History</Text>
+              <Text style={styles.infoDescription}>
+                Track all your rides in one place. Tap on any ride to view detailed information, including route,
+                payment details, and driver information.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{trips.filter((trip) => trip.statuses === "completed").length}</Text>
+              <Text style={styles.statLabel}>Completed</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{trips.filter((trip) => trip.statuses === "canceled").length}</Text>
+              <Text style={styles.statLabel}>Canceled</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{trips.filter((trip) => trip.statuses === "on-going").length}</Text>
+              <Text style={styles.statLabel}>On-going</Text>
+            </View>
+          </View>
+
+          <View style={styles.tipCard}>
+            <View style={styles.tipIconContainer}>
+              <Icon name="zap" size={16} color="#FFC107" />
+            </View>
+            <Text style={styles.tipText}>
+              <Text style={styles.tipBold}>Tip:</Text> You can rate your completed rides and provide feedback to help us
+              improve our service.
+            </Text>
+          </View>
+        </View>
         {isLoading ? (
           <View style={styles.centerContent}>
             <View style={styles.loadingIndicator} />
@@ -710,5 +752,100 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1000, // Ensure this is higher than any other zIndex
     backgroundColor: "rgba(0,0,0,0.5)", // Optional: adds a semi-transparent background dimming
+  },
+  infoSection: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 8,
+  },
+  infoCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  infoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(13, 202, 240, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  infoDescription: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: 16,
+    marginBottom: 16,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+  },
+  statItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#0DCAF0",
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "#e0e0e0",
+  },
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FFF8E1",
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#FFC107",
+  },
+  tipIconContainer: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#333",
+    lineHeight: 18,
+  },
+  tipBold: {
+    fontWeight: "600",
+    color: "#F57C00",
   },
 })

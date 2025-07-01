@@ -30,6 +30,7 @@ import TripCancelationModal from "../components/TripCancelationModal"
 import { api } from "../../api"
 import { setMessageData } from "../redux/actions/messageAction"
 import WebView from "react-native-webview"
+import CancelAlertModal from "../components/CancelAlertModal"
 
 const SCREEN_HEIGHT = Dimensions.get("window").height
 const SCREEN_WIDTH = Dimensions.get("window").width
@@ -104,6 +105,7 @@ const DestinationScreen = ({ navigation, route }) => {
   const [notificationCountChat, setNotificationCountChat] = useState("")
   const [authorizationUrl, setAuthorizationUrl] = useState(null);
   const [tripMeta, setTripMeta] = useState({});
+  const [showCancelAlert, setShowCancelAlert] = useState(false)
 
   const handleCancelTrip = () => {
     setCancelModalVisible(true) // Show cancellation modal
@@ -292,7 +294,8 @@ const DestinationScreen = ({ navigation, route }) => {
   // hndle payment initiation and trip status changes
   useEffect(() => {
     if (tripStatusAccepted === "canceled") {
-      Alert.alert("Trip cancelled", "Choose a different driver.");
+      // Alert.alert("Trip cancelled", "Choose a different driver.");
+      setShowCancelAlert(true);
 
       navigation.navigate("RequestScreen", { driverId: driver_id });
 
@@ -546,6 +549,11 @@ const DestinationScreen = ({ navigation, route }) => {
         </View>
       </TouchableWithoutFeedback>
       {drawerOpen && <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />}
+      <CancelAlertModal
+        visible={showCancelAlert}
+        message="Trip was cancelled by the driver."
+        onClose={() => setShowCancelAlert(false)}
+      />
     </SafeAreaView>
   )
 }

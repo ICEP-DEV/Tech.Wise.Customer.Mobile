@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useContext } from "react"
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import Icon from "react-native-vector-icons/FontAwesome"
 import { Ionicons } from "@expo/vector-icons"
 import axios from "axios"
 import { api } from "../../api"
+import { DestinationContext, OriginContext } from "../contexts/contexts"
 
 const { width } = Dimensions.get("window")
 
@@ -28,6 +29,8 @@ const RideRatingScreen = ({ route, navigation }) => {
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const { dispatchOrigin } = useContext(OriginContext);
+  const { dispatchDestination } = useContext(DestinationContext);
   // Animation values
   const scaleAnim = React.useRef(new Animated.Value(1)).current
 
@@ -70,7 +73,10 @@ const RideRatingScreen = ({ route, navigation }) => {
 
       // Start the auto-redirect timer
       setTimeout(() => {
-        navigation.navigate("RequestScreen")
+        dispatchOrigin({ type: "RESET_ORIGIN" });
+        dispatchDestination({ type: "RESET_DESTINATION" });
+
+        navigation.navigate("RequestScreen");
       }, 4000)
     } catch (error) {
       console.error("Rating submission error:", error)
