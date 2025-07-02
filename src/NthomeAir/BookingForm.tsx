@@ -6,12 +6,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList, // Changed from ScrollView
+  FlatList,
   StyleSheet,
   Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from "react-native"
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, FontAwesome } from "@expo/vector-icons"
 import DateTimePicker from "@react-native-community/datetimepicker"
@@ -33,9 +34,70 @@ const colors = {
   background: "#F7FAFC",
   error: "#E53935",
   iconMuted: "#B6D7E5",
+  success: "#10B981",
 }
 
-const InfoCard = ({ icon, title, description }) => (
+// Default locations - moved outside component
+const defaultLocations = [
+
+  { id: 1, name: "Hangar 21 Rand Airport", address: "Rand Airport, Germiston, Johannesburg, South Africa" },
+  { id: 2, name: "OR Tambo International Airport", address: "O.R. Tambo Airport Rd, Kempton Park, 1627, South Africa" },
+  { id: 3, name: "Cape Town International Airport", address: "Matroosfontein, Cape Town, 7490, South Africa" },
+  { id: 4, name: "King Shaka International Airport", address: "King Shaka Dr, La Mercy, 4405, South Africa" },
+  { id: 5, name: "Lanseria International Airport", address: "Pelindaba Rd, Lanseria, 1748, South Africa" },
+  { id: 6, name: "Port Elizabeth Airport", address: "Allister Miller Dr, Walmer, Gqeberha, 6070, South Africa" },
+]
+
+// Static query object to prevent recreation
+const GOOGLE_PLACES_QUERY = {
+  key: GOOGLE_MAPS_APIKEY,
+  language: "en",
+}
+
+// Autocomplete styles - moved outside component
+const autoCompleteStyles = {
+  container: {
+    flex: 1,
+  },
+  textInput: {
+    height: 40,
+    fontSize: 15,
+    color: colors.textPrimary,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    margin: 0,
+  },
+  listView: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    marginTop: 5,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    maxHeight: 200,
+    position: "absolute",
+    top: 45,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+  },
+  row: {
+    padding: 13,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  description: {
+    color: colors.textPrimary,
+    fontSize: 14,
+  },
+}
+
+// Memoized InfoCard component
+const InfoCard = React.memo(({ icon, title, description }) => (
   <View style={styles.infoCard}>
     <View style={styles.infoIcon}>{icon}</View>
     <View>
@@ -43,105 +105,188 @@ const InfoCard = ({ icon, title, description }) => (
       <Text style={styles.infoDescription}>{description}</Text>
     </View>
   </View>
-)
+))
 
-const BookingForm = ({ navigation }) => {
-  const userId = useSelector((state) => state.auth.user.user_id)
+// Memoized LocationModal component
+const LocationModal = React.memo(({ visible, onClose, onSelect, title }) => (
+  <Modal visible={visible} transparent animationType="slide">
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <Ionicons name="close" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        <FlatList
+          data={defaultLocations}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.locationOption}
+              onPress={() => {
+                onSelect(item)
+                onClose()
+              }}
+            >
+              <Ionicons name="location" size={20} color={colors.brandCyan} />
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationName}>{item.name}</Text>
+                <Text style={styles.locationAddress}>{item.address}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+    </View>
+  </Modal>
+))
 
-  const [form, setForm] = useState({
-    flightDate: "",
-    numberOfPassengers: "",
-    passengerWeights: "",
-    luggageWeight: "",
-    departurePoint: "",
-    destination: "",
-    isReturnFlight: "",
-    waitingTime: "",
-  })
+// Separate memoized component for GooglePlacesAutocomplete to prevent re-renders
+const MemoizedGooglePlacesAutocomplete = React.memo(({ refProp, placeholder, onPress, value, onChangeText }) => {
+  // Memoize textInputProps to prevent recreation
+  const textInputProps = React.useMemo(
+    () => ({
+      placeholderTextColor: colors.textPlaceholder,
+      value: value,
+      onChangeText: onChangeText,
+    }),
+    [value, onChangeText],
+  )
 
-  const [focused, setFocused] = useState(null)
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(30)).current
+  return (
+    <GooglePlacesAutocomplete
+      ref={refProp}
+      placeholder={placeholder}
+      listViewDisplayed="auto"
+      debounce={400}
+      minLength={2}
+      enablePoweredByContainer={false}
+      fetchDetails={true}
+      onPress={onPress}
+      query={GOOGLE_PLACES_QUERY}
+      styles={autoCompleteStyles}
+      nearbyPlacesAPI="GooglePlacesSearch"
+      textInputProps={textInputProps}
+    />
+  )
+})
 
-  // Date picker state
-  const [showDatePicker, setShowDatePicker] = useState(false)
-
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
-    ]).start()
-  }, [])
-
-  const handleChange = (name, value) => setForm({ ...form, [name]: value })
-  const handleFocus = (inputName) => setFocused(inputName)
-  const handleBlur = () => setFocused(null)
-
-  // Handle date picker selection
-  const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false)
-    if (selectedDate) {
-      const dateString = selectedDate.toISOString().split("T")[0]
-      setForm({ ...form, flightDate: dateString })
-    }
-  }
-
-  const handleSubmit = async () => {
-    const requiredFields = ["flightDate", "numberOfPassengers", "departurePoint", "destination"]
-    const missingFields = requiredFields.filter((field) => !form[field])
-    if (missingFields.length > 0) {
-      Alert.alert("Missing Information", "Please fill in all required fields.")
-      return
-    }
-    try {
-      await axios.post(api + "helicopter_quotes", { user_id: userId, ...form })
-      Alert.alert("Quote Request Submitted", "We will contact you shortly with your flight quote!")
-      setForm({
-        flightDate: "",
-        numberOfPassengers: "",
-        passengerWeights: "",
-        luggageWeight: "",
-        departurePoint: "",
-        destination: "",
-        isReturnFlight: "",
-        waitingTime: "",
-      })
-      navigation.navigate("BookingList", { userId })
-    } catch (error) {
-      Alert.alert("Error", "Failed to submit quote. Please try again.")
-    }
-  }
-
-  const getInputStyle = (inputName) => [
-    styles.input,
-    focused === inputName && styles.inputFocused,
-    form[inputName] && styles.inputFilled,
-  ]
-
-  // Define the ListHeaderComponent for FlatList
-  const ListHeader = () => (
-    <>
+// Separate FormContent component to prevent re-renders
+const FormContent = React.memo(
+  ({
+    form,
+    focused,
+    getInputStyle,
+    handleChange,
+    handleFocus,
+    handleBlur,
+    setShowDatePicker,
+    setShowLocationModal,
+    clearDeparture,
+    clearDestination,
+    handleSubmit,
+    fadeAnim,
+    departureRef,
+    destinationRef,
+    showDatePicker,
+    handleDateChange,
+    onDeparturePress,
+    onDestinationPress,
+    onDepartureTextChange,
+    onDestinationTextChange,
+  }) => (
+    <View style={styles.formContentContainer}>
       <View style={styles.introCard}>
         <Text style={styles.introTitle}>Flight Charter Request</Text>
         <Text style={styles.introDescription}>
-          Enter your flight details below. We'll send you a personalized quote as soon as possible.
+          Enter your flight details below. We'll send you a personalized quote within 24 hours.
         </Text>
       </View>
+
+      <InfoCard
+        icon={<Ionicons name="time-outline" size={22} color={colors.success} />}
+        title="Response Time & Airport Arrival"
+        description="We will reply within 24 hours. Please arrive at the airport 2 hours before your scheduled departure time."
+      />
+
       <InfoCard
         icon={<Ionicons name="information-circle-outline" size={22} color={colors.brandCyan} />}
         title="Why We Ask for Weights"
         description="Passenger and luggage weights help us ensure your safety and select the right aircraft for your journey."
       />
+
       <InfoCard
         icon={<MaterialCommunityIcons name="calendar" size={22} color={colors.brandCyan} />}
         title="Flexible Dates?"
         description="If your travel date is flexible, let us know in the notes for more options."
       />
-      <Animated.View style={[styles.formCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+
+      <Animated.View style={[styles.formCard, { opacity: fadeAnim }]}>
         <View style={styles.formHeader}>
           <FontAwesome5 name="plane" size={22} color={colors.brandCyanDark} style={{ marginRight: 10 }} />
           <Text style={styles.formHeading}>Flight Details</Text>
         </View>
+
+        {/* Aircraft Type Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Aircraft Type *</Text>
+          <View style={styles.aircraftTypeContainer}>
+            <TouchableOpacity
+              style={[styles.aircraftTypeOption, form.aircraftType === "aircraft" && styles.aircraftTypeSelected]}
+              onPress={() => handleChange("aircraftType", "aircraft")}
+            >
+              <FontAwesome5
+                name="plane"
+                size={20}
+                color={form.aircraftType === "aircraft" ? colors.white : colors.brandCyan}
+              />
+              <Text
+                style={[styles.aircraftTypeText, form.aircraftType === "aircraft" && styles.aircraftTypeTextSelected]}
+              >
+                Aircraft
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.aircraftTypeOption, form.aircraftType === "helicopter" && styles.aircraftTypeSelected]}
+              onPress={() => handleChange("aircraftType", "helicopter")}
+            >
+              <MaterialCommunityIcons
+                name="helicopter"
+                size={20}
+                color={form.aircraftType === "helicopter" ? colors.white : colors.brandCyan}
+              />
+              <Text
+                style={[styles.aircraftTypeText, form.aircraftType === "helicopter" && styles.aircraftTypeTextSelected]}
+              >
+                Helicopter
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.helperText}>Choose your preferred aircraft type.</Text>
+        </View>
+
+        {/* Transport Option for Helicopter */}
+        {form.aircraftType === "helicopter" && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Airport Transport</Text>
+            <TouchableOpacity
+              style={[styles.transportOption, form.needsTransport && styles.transportOptionSelected]}
+              onPress={() => handleChange("needsTransport", !form.needsTransport)}
+            >
+              <View style={[styles.checkbox, form.needsTransport && styles.checkboxSelected]}>
+                {form.needsTransport && <Ionicons name="checkmark" size={16} color={colors.white} />}
+              </View>
+              <View style={styles.transportInfo}>
+                <Text style={styles.transportTitle}>I need transport to/from the airport</Text>
+                <Text style={styles.transportDescription}>We'll arrange pickup and drop-off service for you</Text>
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.helperText}>Optional: We can arrange transport to take you to the airport.</Text>
+          </View>
+        )}
+
         {/* Trip Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Trip Information</Text>
@@ -161,6 +306,7 @@ const BookingForm = ({ navigation }) => {
             />
           )}
           <Text style={styles.helperText}>Tap to select your preferred departure date.</Text>
+
           <View style={styles.inputGroupFlat}>
             <Ionicons name="people" size={16} color={colors.iconMuted} style={styles.inputIcon} />
             <TextInput
@@ -177,6 +323,7 @@ const BookingForm = ({ navigation }) => {
           </View>
           <Text style={styles.helperText}>Maximum: 6 per flight.</Text>
         </View>
+
         {/* Weights Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Weight Information</Text>
@@ -194,6 +341,7 @@ const BookingForm = ({ navigation }) => {
             />
           </View>
           <Text style={styles.helperText}>E.g., 80, 75, 90</Text>
+
           <View style={styles.inputGroupFlat}>
             <MaterialCommunityIcons name="bag-checked" size={16} color={colors.iconMuted} style={styles.inputIcon} />
             <TextInput
@@ -210,135 +358,90 @@ const BookingForm = ({ navigation }) => {
           </View>
           <Text style={styles.helperText}>Estimate if unsure.</Text>
         </View>
+
         {/* Route Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Route</Text>
-          <View style={styles.inputGroupFlat}>
-            <Ionicons name="location" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-            <GooglePlacesAutocomplete
-              placeholder="Departure Point *"
-              onPress={(data, details = null) => {
-                handleChange("departurePoint", data.description)
-              }}
-              query={{
-                key: GOOGLE_MAPS_APIKEY,
-                language: "en",
-              }}
-              fetchDetails={true}
-              enablePoweredByContainer={false}
-              styles={{
-                container: { flex: 1, zIndex: 1 },
-                textInput: {
-                  ...styles.input,
-                  height: 40,
-                  paddingHorizontal: 0,
-                  backgroundColor: "transparent",
-                },
-                listView: {
-                  position: "absolute",
-                  top: 45,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: colors.white,
-                  zIndex: 1000,
-                  elevation: 5,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                  borderRadius: 6,
-                },
-                row: {
-                  padding: 10,
-                  backgroundColor: colors.white,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                },
-                description: {
-                  color: colors.textPrimary,
-                },
-                predefinedPlacesDescription: {
-                  color: colors.brandCyanDark,
-                },
-              }}
-              textInputProps={{
-                value: form.departurePoint,
-                onChangeText: (text) => {
-                  if (text !== form.departurePoint) {
-                    handleChange("departurePoint", text)
-                  }
-                },
-                placeholderTextColor: colors.textPlaceholder,
-                accessibilityLabel: "Departure Point",
-              }}
 
-            />
+          {/* Departure Point */}
+          <View style={[styles.autocompleteContainer, { zIndex: 1000 }]}>
+            <View style={styles.locationHeader}>
+              <Text style={styles.locationLabel}>Departure Point *</Text>
+              <TouchableOpacity
+                style={styles.defaultLocationButton}
+                onPress={() =>
+                  setShowLocationModal({
+                    visible: true,
+                    type: "departure",
+                    title: "Select Departure Airport",
+                  })
+                }
+              >
+                <Ionicons name="list" size={16} color={colors.brandCyan} />
+                <Text style={styles.defaultLocationText}>Default Locations</Text>
+              </TouchableOpacity>
+            </View>
 
+            <View style={styles.autocompleteInputContainer}>
+              <Ionicons name="location" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+              <View style={styles.autocompleteWrapper}>
+                <MemoizedGooglePlacesAutocomplete
+                  refProp={departureRef}
+                  placeholder="Enter departure location or select from defaults"
+                  onPress={onDeparturePress}
+                  value={form.departurePoint}
+                  onChangeText={onDepartureTextChange}
+                />
+              </View>
+              {form.departurePoint ? (
+                <TouchableOpacity onPress={clearDeparture} style={styles.clearButton}>
+                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
           <Text style={styles.helperText}>City, landmark, or airport location.</Text>
-          <View style={styles.inputGroupFlat}>
-            <Ionicons name="flag" size={16} color={colors.iconMuted} style={styles.inputIcon} />
-            <GooglePlacesAutocomplete
-              placeholder="Destination *"
-              onPress={(data, details = null) => {
-                handleChange("destination", data.description)
-              }}
-              query={{
-                key: GOOGLE_MAPS_APIKEY,
-                language: "en",
-              }}
-              styles={{
-                container: { flex: 1, zIndex: 1 },
-                textInput: {
-                  ...styles.input,
-                  height: 40,
-                  paddingHorizontal: 0,
-                  backgroundColor: "transparent",
-                },
-                listView: {
-                  position: "absolute",
-                  top: 45,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: colors.white,
-                  zIndex: 1000,
-                  elevation: 5,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                  borderRadius: 6,
-                },
-                row: {
-                  padding: 10,
-                  backgroundColor: colors.white,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                },
-                description: {
-                  color: colors.textPrimary,
-                },
-                predefinedPlacesDescription: {
-                  color: colors.brandCyanDark,
-                },
-              }}
-              fetchDetails={true}
-              textInputProps={{
-                value: form.destination,
-                onChangeText: (text) => {
-                  if (text !== form.destination) {
-                    handleChange("destination", text)
-                  }
-                },
-                placeholderTextColor: colors.textPlaceholder,
-                accessibilityLabel: "Destination",
-              }}
 
-              enablePoweredByContainer={false}
-            />
+          {/* Destination */}
+          <View style={[styles.autocompleteContainer, { zIndex: 999 }]}>
+            <View style={styles.locationHeader}>
+              <Text style={styles.locationLabel}>Destination *</Text>
+              <TouchableOpacity
+                style={styles.defaultLocationButton}
+                onPress={() =>
+                  setShowLocationModal({
+                    visible: true,
+                    type: "destination",
+                    title: "Select Destination Airport",
+                  })
+                }
+              >
+                <Ionicons name="list" size={16} color={colors.brandCyan} />
+                <Text style={styles.defaultLocationText}>Default Locations</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.autocompleteInputContainer}>
+              <Ionicons name="flag" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+              <View style={styles.autocompleteWrapper}>
+                <MemoizedGooglePlacesAutocomplete
+                  refProp={destinationRef}
+                  placeholder="Enter destination or select from defaults"
+                  onPress={onDestinationPress}
+                  value={form.destination}
+                  onChangeText={onDestinationTextChange}
+                />
+              </View>
+            </View>
+            {form.destination ? (
+              <TouchableOpacity onPress={clearDestination} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
           </View>
           <Text style={styles.helperText}>Where would you like to go?</Text>
         </View>
+
         <TouchableOpacity
           style={styles.submitButton}
           onPress={handleSubmit}
@@ -347,8 +450,212 @@ const BookingForm = ({ navigation }) => {
           <Text style={styles.submitText}>Request Quote</Text>
         </TouchableOpacity>
       </Animated.View>
-    </>
+    </View>
+  ),
+)
+
+const BookingForm = ({ navigation }) => {
+  const userId = useSelector((state) => state.auth.user?.user_id)
+  const [form, setForm] = useState({
+    flightDate: "",
+    numberOfPassengers: "",
+    passengerWeights: "",
+    luggageWeight: "",
+    departurePoint: "",
+    destination: "",
+    aircraftType: "",
+    needsTransport: false,
+    isReturnFlight: "",
+    waitingTime: "",
+  })
+
+  const [focused, setFocused] = useState(null)
+  const [showLocationModal, setShowLocationModal] = useState({ visible: false, type: "", title: "" })
+  const [showDatePicker, setShowDatePicker] = useState(false)
+
+  // Animation ref - simplified to single animation
+  const fadeAnim = useRef(new Animated.Value(0)).current
+
+  // Refs for GooglePlacesAutocomplete
+  const departureRef = useRef(null)
+  const destinationRef = useRef(null)
+
+  // Start animation only once on mount
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 700,
+      useNativeDriver: true,
+    }).start()
+  }, [fadeAnim])
+
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleChange = React.useCallback((name, value) => {
+    setForm((prevForm) => ({ ...prevForm, [name]: value }))
+  }, [])
+
+  const handleFocus = React.useCallback((inputName) => {
+    setFocused(inputName)
+  }, [])
+
+  const handleBlur = React.useCallback(() => {
+    setFocused(null)
+  }, [])
+
+  const handleDateChange = React.useCallback((event, selectedDate) => {
+    setShowDatePicker(false)
+    if (selectedDate) {
+      const dateString = selectedDate.toISOString().split("T")[0]
+      setForm((prevForm) => ({ ...prevForm, flightDate: dateString }))
+    }
+  }, [])
+
+  // Memoized GooglePlaces callbacks
+  const onDeparturePress = React.useCallback((data, details = null) => {
+    if (details) {
+      setForm((prevForm) => ({ ...prevForm, departurePoint: details.formatted_address }))
+    }
+  }, [])
+
+  const onDestinationPress = React.useCallback((data, details = null) => {
+    if (details) {
+      setForm((prevForm) => ({ ...prevForm, destination: details.formatted_address }))
+    }
+  }, [])
+
+  const onDepartureTextChange = React.useCallback((text) => {
+    setForm((prevForm) => ({ ...prevForm, departurePoint: text }))
+  }, [])
+
+  const onDestinationTextChange = React.useCallback((text) => {
+    setForm((prevForm) => ({ ...prevForm, destination: text }))
+  }, [])
+
+  const handleLocationSelect = React.useCallback((location, type) => {
+    if (type === "departure") {
+      setForm((prevForm) => ({ ...prevForm, departurePoint: location.address }))
+      if (departureRef.current) {
+        departureRef.current.setAddressText(location.address)
+      }
+    } else {
+      setForm((prevForm) => ({ ...prevForm, destination: location.address }))
+      if (destinationRef.current) {
+        destinationRef.current.setAddressText(location.address)
+      }
+    }
+  }, [])
+
+  const clearDeparture = React.useCallback(() => {
+    setForm((prevForm) => ({ ...prevForm, departurePoint: "" }))
+    if (departureRef.current) {
+      departureRef.current.setAddressText("")
+    }
+  }, [])
+
+  const clearDestination = React.useCallback(() => {
+    setForm((prevForm) => ({ ...prevForm, destination: "" }))
+    if (destinationRef.current) {
+      destinationRef.current.setAddressText("")
+    }
+  }, [])
+
+  const handleSubmit = React.useCallback(async () => {
+    const requiredFields = ["flightDate", "numberOfPassengers", "departurePoint", "destination", "aircraftType"]
+    const missingFields = requiredFields.filter((field) => !form[field])
+
+    if (missingFields.length > 0) {
+      Alert.alert("Missing Information", "Please fill in all required fields.")
+      return
+    }
+
+    try {
+      await axios.post(api + "helicopter_quotes", { user_id: userId, ...form })
+      Alert.alert(
+        "Quote Request Submitted",
+        "Thank you! We will reply within 24 hours with your personalized quote. Please be at the airport 2 hours before your scheduled departure time.",
+      )
+
+      // Reset form
+      setForm({
+        flightDate: "",
+        numberOfPassengers: "",
+        passengerWeights: "",
+        luggageWeight: "",
+        departurePoint: "",
+        destination: "",
+        aircraftType: "",
+        needsTransport: false,
+        isReturnFlight: "",
+        waitingTime: "",
+      })
+
+      // Clear autocomplete inputs
+      if (departureRef.current) {
+        departureRef.current.setAddressText("")
+      }
+      if (destinationRef.current) {
+        destinationRef.current.setAddressText("")
+      }
+
+      navigation.navigate("BookingList", { userId })
+    } catch (error) {
+      Alert.alert("Error", "Failed to submit quote. Please try again.")
+    }
+  }, [form, userId, navigation])
+
+  const getInputStyle = React.useCallback(
+    (inputName) => [styles.input, focused === inputName && styles.inputFocused, form[inputName] && styles.inputFilled],
+    [focused, form],
   )
+
+  // Static renderItem function to prevent re-creation
+  const renderFormItem = React.useCallback(
+    () => (
+      <FormContent
+        form={form}
+        focused={focused}
+        getInputStyle={getInputStyle}
+        handleChange={handleChange}
+        handleFocus={handleFocus}
+        handleBlur={handleBlur}
+        setShowDatePicker={setShowDatePicker}
+        setShowLocationModal={setShowLocationModal}
+        clearDeparture={clearDeparture}
+        clearDestination={clearDestination}
+        handleSubmit={handleSubmit}
+        fadeAnim={fadeAnim}
+        departureRef={departureRef}
+        destinationRef={destinationRef}
+        showDatePicker={showDatePicker}
+        handleDateChange={handleDateChange}
+        onDeparturePress={onDeparturePress}
+        onDestinationPress={onDestinationPress}
+        onDepartureTextChange={onDepartureTextChange}
+        onDestinationTextChange={onDestinationTextChange}
+      />
+    ),
+    [
+      form,
+      focused,
+      getInputStyle,
+      handleChange,
+      handleFocus,
+      handleBlur,
+      clearDeparture,
+      clearDestination,
+      handleSubmit,
+      fadeAnim,
+      showDatePicker,
+      handleDateChange,
+      onDeparturePress,
+      onDestinationPress,
+      onDepartureTextChange,
+      onDestinationTextChange,
+    ],
+  )
+
+  // Static data for FlatList to prevent re-creation
+  const flatListData = React.useMemo(() => [{ key: "form" }], [])
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -365,11 +672,19 @@ const BookingForm = ({ navigation }) => {
         </View>
 
         <FlatList
-          data={[]} // Dummy data, as all content is in header
-          renderItem={() => null} // No items to render directly
-          ListHeaderComponent={ListHeader}
+          data={flatListData}
+          renderItem={renderFormItem}
+          keyExtractor={(item) => item.key}
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+
+        <LocationModal
+          visible={showLocationModal.visible}
+          onClose={() => setShowLocationModal({ visible: false, type: "", title: "" })}
+          onSelect={(location) => handleLocationSelect(location, showLocationModal.type)}
+          title={showLocationModal.title}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -381,6 +696,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 20,
     backgroundColor: colors.background,
+  },
+  formContentContainer: {
+    flex: 1,
   },
   headerBar: {
     flexDirection: "row",
@@ -493,6 +811,154 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 8,
   },
+  // Aircraft Type Selection Styles
+  aircraftTypeContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 10,
+  },
+  aircraftTypeOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.brandCyan,
+    backgroundColor: colors.white,
+  },
+  aircraftTypeSelected: {
+    backgroundColor: colors.brandCyan,
+    borderColor: colors.brandCyanDark,
+  },
+  aircraftTypeText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.brandCyan,
+  },
+  aircraftTypeTextSelected: {
+    color: colors.white,
+  },
+  // Transport Option Styles
+  transportOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    marginBottom: 10,
+  },
+  transportOptionSelected: {
+    borderColor: colors.brandCyan,
+    backgroundColor: "#F0F9FF",
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.border,
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxSelected: {
+    backgroundColor: colors.brandCyan,
+    borderColor: colors.brandCyan,
+  },
+  transportInfo: {
+    flex: 1,
+  },
+  transportTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  transportDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  // Location Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  locationOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  locationInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  locationAddress: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  // Location Header Styles
+  locationHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  locationLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  defaultLocationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: "rgba(0, 184, 217, 0.1)",
+  },
+  defaultLocationText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: colors.brandCyan,
+    fontWeight: "600",
+  },
   inputGroupFlat: {
     flexDirection: "row",
     alignItems: "center",
@@ -503,7 +969,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    zIndex: 1, // Ensure autocomplete suggestions appear above other content
+  },
+  autocompleteContainer: {
+    marginBottom: 10,
+    zIndex: 1,
+  },
+  autocompleteInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F7FAFC",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  autocompleteWrapper: {
+    flex: 1,
+    position: "relative",
   },
   inputIcon: {
     marginRight: 7,
@@ -548,6 +1031,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "bold",
     letterSpacing: 0.3,
+  },
+  clearButton: {
+    padding: 4,
+    marginLeft: 8,
   },
 })
 

@@ -295,13 +295,13 @@ const DestinationScreen = ({ navigation, route }) => {
   useEffect(() => {
     if (tripStatusAccepted === "canceled") {
       // Alert.alert("Trip cancelled", "Choose a different driver.");
-      setShowCancelAlert(true);
 
       navigation.navigate("RequestScreen", { driverId: driver_id });
 
       setTimeout(() => {
         navigation.navigate("CarListingBottomSheet", { driverId: driver_id });
-      }, 1000);
+        setShowCancelAlert(true);
+      }, 100);
 
       stopListeningToTripAccepted();
       stopListeningToTripDeclined();
@@ -518,19 +518,23 @@ const DestinationScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.profilePictureContainer}
-            onPress={() => navigation.navigate("DriverCommunicationBottomSheet")}
-          >
-            <Image source={require("../../assets/call.png")} style={styles.profilePicture} />
-          </TouchableOpacity>
+          {tripStatus === "accepted" || tripStatus === "arrived" && (
+            <TouchableOpacity
+              style={styles.profilePictureContainer}
+              onPress={() => navigation.navigate("DriverCommunicationBottomSheet")}
+            >
+              <Image source={require("../../assets/call.png")} style={styles.profilePicture} />
+            </TouchableOpacity>
+          )}
           {/* Cancel Trip Icon positioned below the call button */}
-          <TouchableOpacity
-            style={[styles.profilePictureContainer, styles.cancelButtonContainer]}
-            onPress={handleCancelTrip}
-          >
-            <Icon name="cancel" color="#0DCAF0" size={30} /> {/* Cancel Icon */}
-          </TouchableOpacity>
+          {tripStatus !== "started" && (
+            < TouchableOpacity
+              style={[styles.profilePictureContainer, styles.cancelButtonContainer]}
+              onPress={handleCancelTrip}
+            >
+              <Icon name="cancel" color="#0DCAF0" size={30} /> {/* Cancel Icon */}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.rectangleButton} onPress={handleNavigation}>
             <Text style={styles.buttonText}>View Driver</Text>
@@ -551,10 +555,10 @@ const DestinationScreen = ({ navigation, route }) => {
       {drawerOpen && <CustomDrawer isOpen={drawerOpen} toggleDrawer={toggleDrawer} navigation={navigation} />}
       <CancelAlertModal
         visible={showCancelAlert}
-        message="Trip was cancelled by the driver."
+        message="Trip was cancelled."
         onClose={() => setShowCancelAlert(false)}
       />
-    </SafeAreaView>
+    </SafeAreaView >
   )
 }
 

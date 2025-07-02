@@ -38,7 +38,7 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
 
   const carData = route.params || {}
 
-  const { id, driverName, driverRating, price, ETA, driverPhoto, classType, driverState, driverStatus } = carData
+  const { id, driverName, price, ETA, driverPhoto, classType, driverState, driverStatus } = carData
   const { origin } = useContext(OriginContext)
   const { destination } = useContext(DestinationContext)
   const dispatch = useDispatch()
@@ -192,6 +192,39 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
     ? carData.driverPhoto
     : require("../../assets/placeholder.jpg")
 
+
+  const [driverRating, setDriverRating] = useState(null)
+  const driver_id = extractedData.driverId || ""
+
+  useEffect(() => {
+    const fetchDriverRating = async () => {
+      try {
+        const res = await axios.get(`${api}/allTrips`, {
+          params: {
+            driverId: driver_id, // pass the driver's ID here
+          },
+        })
+
+        const trips = res.data
+
+        // Filter out null ratings
+        const ratedTrips = trips.filter(trip => trip.driver_ratings !== null)
+
+        if (ratedTrips.length > 0) {
+          const total = ratedTrips.reduce((sum, trip) => sum + parseFloat(trip.driver_ratings), 0)
+          const avg = total / ratedTrips.length
+          setDriverRating(avg)
+        } else {
+          setDriverRating(null)
+        }
+
+      } catch (err) {
+        console.error("Error fetching driver rating:", err)
+      }
+    }
+
+    fetchDriverRating()
+  }, [driver_id])
   const renderStars = (rating) => {
     const stars = []
     const fullStars = Math.floor(rating)
@@ -220,7 +253,7 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
       <Pressable onPress={() => navigation.navigate("CarListingBottomSheet")} style={styles.overlay} />
 
       {isBlurVisible && (
-        <Animated.View style={[styles.bottomSheet, { 
+        <Animated.View style={[styles.bottomSheet, {
           transform: [{ translateY: slideAnim }],
           height: bottomSheetHeight,
           maxHeight: height * 0.9
@@ -237,7 +270,7 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
               </Pressable>
             </View>
 
-            <ScrollView 
+            <ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}

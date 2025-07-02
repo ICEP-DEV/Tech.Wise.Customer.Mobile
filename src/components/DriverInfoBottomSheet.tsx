@@ -41,9 +41,10 @@ const DriverInfoBlurView = ({ route, navigation }) => {
         carDescription: tripData.carData.carData.description || "Nthome Car",
         image: tripData.carData.carData.carImage,
       }
+// console.log("Trip Data:", tripData.carData.carData.carImage);
 
       // Set image URLs
-      const carImageUri = car.image ? api + `public/carImages/${car.image}` : api + "public/carImages/placeholder.png"
+      const carImageUri = car.image 
       const driverImageUri = driver.profileImage
       ? driver.profileImage
       : require("../../assets/placeholder.jpg")
@@ -242,7 +243,7 @@ const DriverInfoBlurView = ({ route, navigation }) => {
 
                 <View style={styles.divider} />
 
-                <View style={styles.featuresContainer}>
+                {/* <View style={styles.featuresContainer}>
                   <Text style={styles.featuresTitle}>Features</Text>
                   <View style={styles.featuresGrid}>
                     <View style={styles.featureItem}>
@@ -262,7 +263,7 @@ const DriverInfoBlurView = ({ route, navigation }) => {
                       <Text style={styles.featureText}>Safety</Text>
                     </View>
                   </View>
-                </View>
+                </View> */}
               </View>
             </View>
           )}
