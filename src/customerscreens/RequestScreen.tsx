@@ -190,6 +190,8 @@ export default function RequestScreen({ navigation }) {
       // Check if distance is within allowed limit
       if (!checkDistanceLimit(origin, destination)) {
         setShowDistanceAlert(true)
+        dispatchDestination({ type: "RESET_DESTINATION" })
+        setDestination(false)
         return
       }
 

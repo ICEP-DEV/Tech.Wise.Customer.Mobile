@@ -24,22 +24,25 @@ import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplet
 import { GOOGLE_MAPS_APIKEY } from "@env"
 
 const colors = {
-  brandCyan: "#00B8D9",
-  brandCyanDark: "#0086A8",
-  white: "#fff",
-  textPrimary: "#222",
-  textSecondary: "#888",
-  textPlaceholder: "#B0B0B0",
-  border: "#E0E0E0",
-  background: "#F7FAFC",
-  error: "#E53935",
-  iconMuted: "#B6D7E5",
-  success: "#10B981",
+  primary: "#0DCAF0", // Professional blue
+  primaryDark: "#1E3A8A", // Darker blue
+  primaryLight: "#DBEAFE", // Light blue
+  white: "#FFFFFF",
+  textPrimary: "#1F2937", // Dark gray
+  textSecondary: "#6B7280", // Medium gray
+  textPlaceholder: "#9CA3AF", // Light gray
+  border: "#E5E7EB", // Very light gray
+  background: "#FFFFFF", // Pure white
+  error: "#DC2626", // Red
+  success: "#059669", // Green
+  warning: "#D97706", // Orange
+  cardBackground: "#FFFFFF",
+  inputBackground: "#F9FAFB",
+  shadowColor: "#000000",
 }
 
 // Default locations - moved outside component
 const defaultLocations = [
-
   { id: 1, name: "Hangar 21 Rand Airport", address: "Rand Airport, Germiston, Johannesburg, South Africa" },
   { id: 2, name: "OR Tambo International Airport", address: "O.R. Tambo Airport Rd, Kempton Park, 1627, South Africa" },
   { id: 3, name: "Cape Town International Airport", address: "Matroosfontein, Cape Town, 7490, South Africa" },
@@ -70,22 +73,24 @@ const autoCompleteStyles = {
   },
   listView: {
     backgroundColor: colors.white,
-    borderRadius: 8,
+    borderRadius: 12,
     marginTop: 5,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    elevation: 8,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
     maxHeight: 200,
     position: "absolute",
     top: 45,
     left: 0,
     right: 0,
     zIndex: 9999,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   row: {
-    padding: 13,
+    padding: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -100,7 +105,7 @@ const autoCompleteStyles = {
 const InfoCard = React.memo(({ icon, title, description }) => (
   <View style={styles.infoCard}>
     <View style={styles.infoIcon}>{icon}</View>
-    <View>
+    <View style={styles.infoContent}>
       <Text style={styles.infoTitle}>{title}</Text>
       <Text style={styles.infoDescription}>{description}</Text>
     </View>
@@ -129,7 +134,9 @@ const LocationModal = React.memo(({ visible, onClose, onSelect, title }) => (
                 onClose()
               }}
             >
-              <Ionicons name="location" size={20} color={colors.brandCyan} />
+              <View style={styles.locationIconContainer}>
+                <Ionicons name="location" size={20} color={colors.primary} />
+              </View>
               <View style={styles.locationInfo}>
                 <Text style={styles.locationName}>{item.name}</Text>
                 <Text style={styles.locationAddress}>{item.address}</Text>
@@ -198,33 +205,36 @@ const FormContent = React.memo(
   }) => (
     <View style={styles.formContentContainer}>
       <View style={styles.introCard}>
-        <Text style={styles.introTitle}>Flight Charter Request</Text>
+        <View style={styles.introHeader}>
+          <FontAwesome5 name="paper-plane" size={24} color={colors.primary} />
+          <Text style={styles.introTitle}>Flight Charter Request</Text>
+        </View>
         <Text style={styles.introDescription}>
-          Enter your flight details below. We'll send you a personalized quote within 24 hours.
+          Enter your flight details below and we'll send you a personalized quote within 24 hours.
         </Text>
       </View>
 
       <InfoCard
-        icon={<Ionicons name="time-outline" size={22} color={colors.success} />}
-        title="Response Time & Airport Arrival"
-        description="We will reply within 24 hours. Please arrive at the airport 2 hours before your scheduled departure time."
+        icon={<Ionicons name="time-outline" size={24} color={colors.success} />}
+        title="Quick Response Time"
+        description="We guarantee a response within 24 hours. Please arrive at the airport 2 hours before departure."
       />
 
       <InfoCard
-        icon={<Ionicons name="information-circle-outline" size={22} color={colors.brandCyan} />}
-        title="Why We Ask for Weights"
-        description="Passenger and luggage weights help us ensure your safety and select the right aircraft for your journey."
+        icon={<Ionicons name="shield-checkmark-outline" size={24} color={colors.primary} />}
+        title="Safety First"
+        description="Passenger and luggage weights help us ensure your safety and select the right aircraft."
       />
 
       <InfoCard
-        icon={<MaterialCommunityIcons name="calendar" size={22} color={colors.brandCyan} />}
-        title="Flexible Dates?"
-        description="If your travel date is flexible, let us know in the notes for more options."
+        icon={<MaterialCommunityIcons name="calendar-clock" size={24} color={colors.warning} />}
+        title="Flexible Scheduling"
+        description="Have flexible dates? Let us know in the notes section for more booking options."
       />
 
       <Animated.View style={[styles.formCard, { opacity: fadeAnim }]}>
         <View style={styles.formHeader}>
-          <FontAwesome5 name="plane" size={22} color={colors.brandCyanDark} style={{ marginRight: 10 }} />
+          <FontAwesome5 name="plane" size={20} color={colors.primary} />
           <Text style={styles.formHeading}>Flight Details</Text>
         </View>
 
@@ -238,8 +248,8 @@ const FormContent = React.memo(
             >
               <FontAwesome5
                 name="plane"
-                size={20}
-                color={form.aircraftType === "aircraft" ? colors.white : colors.brandCyan}
+                size={18}
+                color={form.aircraftType === "aircraft" ? colors.white : colors.primary}
               />
               <Text
                 style={[styles.aircraftTypeText, form.aircraftType === "aircraft" && styles.aircraftTypeTextSelected]}
@@ -254,8 +264,8 @@ const FormContent = React.memo(
             >
               <MaterialCommunityIcons
                 name="helicopter"
-                size={20}
-                color={form.aircraftType === "helicopter" ? colors.white : colors.brandCyan}
+                size={18}
+                color={form.aircraftType === "helicopter" ? colors.white : colors.primary}
               />
               <Text
                 style={[styles.aircraftTypeText, form.aircraftType === "helicopter" && styles.aircraftTypeTextSelected]}
@@ -264,13 +274,13 @@ const FormContent = React.memo(
               </Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.helperText}>Choose your preferred aircraft type.</Text>
+          <Text style={styles.helperText}>Select your preferred aircraft type for this journey.</Text>
         </View>
 
         {/* Transport Option for Helicopter */}
-        {form.aircraftType === "helicopter" && (
+        {form.aircraftType && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Airport Transport</Text>
+            <Text style={styles.sectionLabel}>Ground Transport</Text>
             <TouchableOpacity
               style={[styles.transportOption, form.needsTransport && styles.transportOptionSelected]}
               onPress={() => handleChange("needsTransport", !form.needsTransport)}
@@ -280,21 +290,26 @@ const FormContent = React.memo(
               </View>
               <View style={styles.transportInfo}>
                 <Text style={styles.transportTitle}>I need transport to/from the airport</Text>
-                <Text style={styles.transportDescription}>We'll arrange pickup and drop-off service for you</Text>
+                <Text style={styles.transportDescription}>
+                  We'll arrange ground transportation for you since aircraft must land at designated airports
+                </Text>
               </View>
             </TouchableOpacity>
-            <Text style={styles.helperText}>Optional: We can arrange transport to take you to the airport.</Text>
+            <Text style={styles.helperText}>
+              Optional: Ground transport service to your final destination since aircraft land at airports.
+            </Text>
           </View>
         )}
 
         {/* Trip Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Trip Information</Text>
-          <TouchableOpacity style={styles.inputGroupFlat} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
-            <FontAwesome name="calendar" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+          <TouchableOpacity style={styles.inputGroup} onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
+            <FontAwesome name="calendar" size={16} color={colors.textSecondary} style={styles.inputIcon} />
             <Text style={[styles.input, form.flightDate ? styles.inputFilled : { color: colors.textPlaceholder }]}>
-              {form.flightDate ? form.flightDate : "Flight Date *"}
+              {form.flightDate ? form.flightDate : "Select Flight Date *"}
             </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
@@ -305,10 +320,10 @@ const FormContent = React.memo(
               minimumDate={new Date()}
             />
           )}
-          <Text style={styles.helperText}>Tap to select your preferred departure date.</Text>
+          <Text style={styles.helperText}>Choose your preferred departure date.</Text>
 
-          <View style={styles.inputGroupFlat}>
-            <Ionicons name="people" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+          <View style={styles.inputGroup}>
+            <Ionicons name="people" size={16} color={colors.textSecondary} style={styles.inputIcon} />
             <TextInput
               placeholder="Number of Passengers *"
               placeholderTextColor={colors.textPlaceholder}
@@ -321,16 +336,16 @@ const FormContent = React.memo(
               accessibilityLabel="Number of Passengers"
             />
           </View>
-          <Text style={styles.helperText}>Maximum: 6 per flight.</Text>
+          <Text style={styles.helperText}>Maximum 6 passengers per flight.</Text>
         </View>
 
         {/* Weights Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Weight Information</Text>
-          <View style={styles.inputGroupFlat}>
-            <MaterialCommunityIcons name="weight" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+          <View style={styles.inputGroup}>
+            <MaterialCommunityIcons name="weight" size={16} color={colors.textSecondary} style={styles.inputIcon} />
             <TextInput
-              placeholder="Passenger Weights (comma separated)"
+              placeholder="Passenger Weights (e.g., 80, 75, 90)"
               placeholderTextColor={colors.textPlaceholder}
               style={getInputStyle("passengerWeights")}
               value={form.passengerWeights}
@@ -340,10 +355,15 @@ const FormContent = React.memo(
               accessibilityLabel="Passenger Weights"
             />
           </View>
-          <Text style={styles.helperText}>E.g., 80, 75, 90</Text>
+          <Text style={styles.helperText}>Enter weights separated by commas (in kg).</Text>
 
-          <View style={styles.inputGroupFlat}>
-            <MaterialCommunityIcons name="bag-checked" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+          <View style={styles.inputGroup}>
+            <MaterialCommunityIcons
+              name="bag-checked"
+              size={16}
+              color={colors.textSecondary}
+              style={styles.inputIcon}
+            />
             <TextInput
               placeholder="Total Luggage Weight (kg)"
               placeholderTextColor={colors.textPlaceholder}
@@ -356,12 +376,12 @@ const FormContent = React.memo(
               accessibilityLabel="Total Luggage Weight"
             />
           </View>
-          <Text style={styles.helperText}>Estimate if unsure.</Text>
+          <Text style={styles.helperText}>Provide an estimate if exact weight is unknown.</Text>
         </View>
 
         {/* Route Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Route</Text>
+          <Text style={styles.sectionLabel}>Flight Route</Text>
 
           {/* Departure Point */}
           <View style={[styles.autocompleteContainer, { zIndex: 1000 }]}>
@@ -377,17 +397,17 @@ const FormContent = React.memo(
                   })
                 }
               >
-                <Ionicons name="list" size={16} color={colors.brandCyan} />
-                <Text style={styles.defaultLocationText}>Default Locations</Text>
+                <Ionicons name="list" size={14} color={colors.primary} />
+                <Text style={styles.defaultLocationText}>Quick Select</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.autocompleteInputContainer}>
-              <Ionicons name="location" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+              <Ionicons name="location" size={16} color={colors.textSecondary} style={styles.inputIcon} />
               <View style={styles.autocompleteWrapper}>
                 <MemoizedGooglePlacesAutocomplete
                   refProp={departureRef}
-                  placeholder="Enter departure location or select from defaults"
+                  placeholder="Enter departure location"
                   onPress={onDeparturePress}
                   value={form.departurePoint}
                   onChangeText={onDepartureTextChange}
@@ -395,12 +415,12 @@ const FormContent = React.memo(
               </View>
               {form.departurePoint ? (
                 <TouchableOpacity onPress={clearDeparture} style={styles.clearButton}>
-                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               ) : null}
             </View>
           </View>
-          <Text style={styles.helperText}>City, landmark, or airport location.</Text>
+          <Text style={styles.helperText}>Enter city, landmark, or airport name.</Text>
 
           {/* Destination */}
           <View style={[styles.autocompleteContainer, { zIndex: 999 }]}>
@@ -416,30 +436,30 @@ const FormContent = React.memo(
                   })
                 }
               >
-                <Ionicons name="list" size={16} color={colors.brandCyan} />
-                <Text style={styles.defaultLocationText}>Default Locations</Text>
+                <Ionicons name="list" size={14} color={colors.primary} />
+                <Text style={styles.defaultLocationText}>Quick Select</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.autocompleteInputContainer}>
-              <Ionicons name="flag" size={16} color={colors.iconMuted} style={styles.inputIcon} />
+              <Ionicons name="flag" size={16} color={colors.textSecondary} style={styles.inputIcon} />
               <View style={styles.autocompleteWrapper}>
                 <MemoizedGooglePlacesAutocomplete
                   refProp={destinationRef}
-                  placeholder="Enter destination or select from defaults"
+                  placeholder="Enter destination"
                   onPress={onDestinationPress}
                   value={form.destination}
                   onChangeText={onDestinationTextChange}
                 />
               </View>
-            </View>
             {form.destination ? (
               <TouchableOpacity onPress={clearDestination} style={styles.clearButton}>
-                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             ) : null}
+            </View>
           </View>
-          <Text style={styles.helperText}>Where would you like to go?</Text>
+          <Text style={styles.helperText}>Where would you like to fly to?</Text>
         </View>
 
         <TouchableOpacity
@@ -447,6 +467,7 @@ const FormContent = React.memo(
           onPress={handleSubmit}
           accessibilityLabel="Submit flight booking request"
         >
+          <FontAwesome5 name="paper-plane" size={16} color={colors.white} style={{ marginRight: 8 }} />
           <Text style={styles.submitText}>Request Quote</Text>
         </TouchableOpacity>
       </Animated.View>
@@ -665,7 +686,7 @@ const BookingForm = ({ navigation }) => {
       >
         <View style={styles.headerBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.roundButton}>
-            <Ionicons name="arrow-back" color={colors.textPrimary} size={30} />
+            <Ionicons name="arrow-back" color={colors.textPrimary} size={28} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Book Your Flight</Text>
           <View style={{ width: 50 }} />
@@ -694,7 +715,7 @@ const BookingForm = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 20,
+    padding: 16,
     backgroundColor: colors.background,
   },
   formContentContainer: {
@@ -704,118 +725,143 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 10,
-    paddingVertical: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     elevation: 2,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: "700",
-    color: colors.brandCyanDark,
-    letterSpacing: 0.2,
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
   },
   roundButton: {
-    backgroundColor: "#fff",
-    borderRadius: 30,
+    backgroundColor: colors.white,
+    borderRadius: 25,
     width: 50,
     height: 50,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   introCard: {
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  introHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
   },
   introTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginLeft: 12,
   },
   introDescription: {
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textSecondary,
+    lineHeight: 24,
   },
   infoCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "#F2F8FA",
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   infoIcon: {
-    marginRight: 10,
+    marginRight: 12,
     marginTop: 2,
+  },
+  infoContent: {
+    flex: 1,
   },
   infoTitle: {
     fontWeight: "600",
     color: colors.textPrimary,
-    fontSize: 15,
-    marginBottom: 2,
+    fontSize: 16,
+    marginBottom: 4,
   },
   infoDescription: {
     color: colors.textSecondary,
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
   },
   formCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 18,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 24,
     marginTop: 8,
     marginBottom: 24,
-    shadowColor: "#00B8D9",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   formHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   formHeading: {
-    fontSize: 18,
-    color: colors.brandCyanDark,
-    fontWeight: "bold",
-    letterSpacing: 0.2,
+    fontSize: 20,
+    color: colors.textPrimary,
+    fontWeight: "700",
+    marginLeft: 12,
+    letterSpacing: 0.3,
   },
   section: {
-    marginBottom: 18,
+    marginBottom: 24,
   },
   sectionLabel: {
     fontWeight: "600",
-    fontSize: 15,
-    color: colors.brandCyanDark,
-    marginBottom: 8,
-    marginTop: 8,
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: 12,
   },
   // Aircraft Type Selection Styles
   aircraftTypeContainer: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   aircraftTypeOption: {
     flex: 1,
@@ -823,20 +869,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: colors.brandCyan,
+    borderColor: colors.border,
     backgroundColor: colors.white,
   },
   aircraftTypeSelected: {
-    backgroundColor: colors.brandCyan,
-    borderColor: colors.brandCyanDark,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   aircraftTypeText: {
     marginLeft: 8,
     fontSize: 16,
     fontWeight: "600",
-    color: colors.brandCyan,
+    color: colors.primary,
   },
   aircraftTypeTextSelected: {
     color: colors.white,
@@ -846,20 +892,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
-    marginBottom: 10,
+    backgroundColor: colors.inputBackground,
+    marginBottom: 12,
   },
   transportOptionSelected: {
-    borderColor: colors.brandCyan,
-    backgroundColor: "#F0F9FF",
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: colors.border,
     marginRight: 12,
@@ -867,8 +913,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxSelected: {
-    backgroundColor: colors.brandCyan,
-    borderColor: colors.brandCyan,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   transportInfo: {
     flex: 1,
@@ -891,8 +937,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: "80%",
     paddingBottom: 20,
   },
@@ -900,27 +946,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    padding: 24,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
     color: colors.textPrimary,
   },
   modalCloseButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.inputBackground,
   },
   locationOption: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  locationIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
   locationInfo: {
-    marginLeft: 12,
     flex: 1,
   },
   locationName: {
@@ -941,99 +997,102 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   locationLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     color: colors.textPrimary,
   },
   defaultLocationButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: "rgba(0, 184, 217, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.primaryLight,
   },
   defaultLocationText: {
-    marginLeft: 4,
+    marginLeft: 6,
     fontSize: 12,
-    color: colors.brandCyan,
+    color: colors.primary,
     fontWeight: "600",
   },
-  inputGroupFlat: {
+  inputGroup: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F7FAFC",
-    borderRadius: 6,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    minHeight: 52,
   },
   autocompleteContainer: {
-    marginBottom: 10,
+    marginBottom: 12,
     zIndex: 1,
   },
   autocompleteInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F7FAFC",
-    borderRadius: 6,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    minHeight: 52,
   },
   autocompleteWrapper: {
     flex: 1,
     position: "relative",
   },
   inputIcon: {
-    marginRight: 7,
-    opacity: 0.6,
+    marginRight: 12,
   },
   input: {
     flex: 1,
-    height: 40,
-    fontSize: 15,
+    height: 44,
+    fontSize: 16,
     color: colors.textPrimary,
     backgroundColor: "transparent",
     borderWidth: 0,
   },
   inputFocused: {
-    backgroundColor: "#E3F7FA",
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
   },
   inputFilled: {
-    color: colors.brandCyanDark,
-    fontWeight: "600",
+    color: colors.textPrimary,
+    fontWeight: "500",
   },
   helperText: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 12,
+    marginBottom: 8,
     marginLeft: 4,
   },
   submitButton: {
-    backgroundColor: colors.brandCyan,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 13,
-    marginTop: 10,
-    shadowColor: "#00B8D9",
-    shadowOpacity: 0.12,
+    paddingVertical: 16,
+    marginTop: 16,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   submitText: {
     color: colors.white,
-    fontSize: 17,
-    fontWeight: "bold",
-    letterSpacing: 0.3,
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   clearButton: {
-    padding: 4,
+    padding: 8,
     marginLeft: 8,
   },
 })

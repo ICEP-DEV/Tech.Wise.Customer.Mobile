@@ -196,6 +196,7 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
   const [driverRating, setDriverRating] = useState(null)
   const driver_id = extractedData.driverId || ""
 
+  // Fetch driver rating from the server
   useEffect(() => {
     const fetchDriverRating = async () => {
       try {
@@ -225,6 +226,8 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
 
     fetchDriverRating()
   }, [driver_id])
+
+  // Function to render stars based on rating
   const renderStars = (rating) => {
     const stars = []
     const fullStars = Math.floor(rating)
@@ -284,7 +287,9 @@ const DriverDetailsBottomSheet = ({ navigation, route }) => {
 
                 <View style={styles.driverDetails}>
                   <Text style={styles.driverName}>{driverName}</Text>
+
                   {renderStars(driverRating)}
+                  
                   <View style={styles.vehicleInfo}>
                     <Icon name="car" type="material-community" size={16} color="#0DCAF0" />
                     <Text style={styles.vehicleText}>{classType || "Standard"}</Text>

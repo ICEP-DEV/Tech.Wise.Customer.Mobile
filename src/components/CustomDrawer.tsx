@@ -1,27 +1,107 @@
-import React, { useEffect, useCallback } from "react";
-import { View, Text, TouchableOpacity, Animated, StyleSheet, Pressable, Image } from "react-native";
-import { useSelector } from 'react-redux';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+"use client"
 
-const ACCENT = "#0DCAF0"; // Use your brand color here
-const BG_GRADIENT = ["#f6fafd", "#e3f0fc"]; // Soft gradient background
+import React, { useEffect, useCallback, useState } from "react"
+
+import { View, Text, TouchableOpacity, Animated, StyleSheet, Pressable, ScrollView } from "react-native"
+
+import { useSelector } from "react-redux"
+
+import Icon from "react-native-vector-icons/MaterialCommunityIcons"
+
+import { api } from "../../api"
+
+import axios from "axios"
+
+const ACCENT = "#0DCAF0" // Use your brand color here
 
 const CustomDrawer = ({ isOpen, toggleDrawer, navigation }) => {
-  const user = useSelector(state => state.auth.user);
-  const drawerWidth = 300;
-  const slideAnim = React.useRef(new Animated.Value(-drawerWidth)).current;
+  const user = useSelector((state) => state.auth.user)
+
+  const drawerWidth = 280
+
+  const slideAnim = React.useRef(new Animated.Value(-drawerWidth)).current
+
+  const user_id = user?.user_id || ""
 
   const animateDrawer = useCallback(() => {
     Animated.timing(slideAnim, {
       toValue: isOpen ? 0 : -drawerWidth,
       duration: 300,
       useNativeDriver: true,
-    }).start();
-  }, [isOpen, slideAnim]);
+    }).start()
+  }, [isOpen, slideAnim])
 
   useEffect(() => {
-    animateDrawer();
-  }, [isOpen, animateDrawer]);
+    animateDrawer()
+  }, [isOpen, animateDrawer])
+
+  const [customerRating, setRating] = useState(null)
+
+  // Fetch customer rating from the server
+  useEffect(() => {
+    if (!user_id) return // Ensure user_id is available before making the request
+
+    const fetchCustomerRating = async () => {
+      try {
+        const res = await axios.get(`${api}/tripHistory/${user_id}`, {
+          params: {
+            customerId: user_id, // pass the customer's ID here
+          },
+        })
+        const trips = res.data
+
+        // Filter out null ratings
+        const ratedTrips = trips.filter((trip) => trip.customer_rating !== null)
+
+        if (ratedTrips.length > 0) {
+          const total = ratedTrips.reduce((sum, trip) => sum + Number.parseFloat(trip.customer_rating), 0)
+          const avg = total / ratedTrips.length
+          setRating(avg)
+        } else {
+          setRating(null)
+        }
+      } catch (err) {
+        console.error("Error fetching customer rating:", err)
+      }
+    }
+
+    fetchCustomerRating()
+  }, [user_id])
+
+  // Function to render stars based on rating
+  const renderStars = (rating) => {
+    if (!rating || isNaN(rating)) {
+      return (
+        <View style={styles.starsContainer}>
+          {[...Array(5)].map((_, i) => (
+            <Icon key={i} name="star-outline" size={16} color="#E5E7EB" />
+          ))}
+          <Text style={styles.ratingValue}>N/A</Text>
+        </View>
+      )
+    }
+
+    const stars = []
+    const fullStars = Math.floor(rating)
+    const halfStar = rating - fullStars >= 0.5
+
+    for (let i = 0; i < 5; i++) {
+      if (i < fullStars) {
+        stars.push(<Icon key={i} name="star" size={16} color="#FFD700" />)
+      } else if (i === fullStars && halfStar) {
+        stars.push(<Icon key={i} name="star-half-full" size={16} color="#FFD700" />)
+      } else {
+        stars.push(<Icon key={i} name="star-outline" size={16} color="#E5E7EB" />)
+      }
+    }
+
+    return (
+      <View style={styles.starsContainer}>
+        {stars}
+        <Text style={styles.ratingValue}>{Number(rating).toFixed(1)}</Text>
+      </View>
+    )
+  }
 
   return (
     <>
@@ -30,179 +110,290 @@ const CustomDrawer = ({ isOpen, toggleDrawer, navigation }) => {
           <View style={styles.overlayInner} />
         </Pressable>
       )}
+
       <Animated.View
         style={[
           styles.drawer,
-          { transform: [{ translateX: slideAnim }] }
+          {
+            transform: [{ translateX: slideAnim }],
+          },
         ]}
       >
-        <View style={styles.drawerContent}>
-          {/* User Section */}
-          <View style={styles.profileSection}>
-            {/* <View style={styles.avatarWrapper}>
-              <Image
-                source={user?.profile_picture ? { uri: user.profile_picture } : require('../../assets/blankProfilePic.jpg')}
-                style={styles.avatar}
-              />
-            </View> */}
-            <View style={{ marginLeft: 16 }}>
-              <Text style={styles.greeting}>
-                {user ? `Hello, ${user.name.split(' ')[0]}` : "Loading..."}
-              </Text>
-              <View style={styles.ratingRow}>
-                <Icon name="star" size={16} color={ACCENT} />
-                <Text style={styles.ratingText}>4.8</Text>
+        <ScrollView style={styles.drawerContent} showsVerticalScrollIndicator={false}>
+          {/* Enhanced Welcome Section */}
+          <View style={styles.welcomeSection}>
+            <View style={styles.profileContainer}>
+              <View style={styles.avatarContainer}>
+                <Icon name="account-circle" size={50} color={ACCENT} />
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.greeting}>{user ? `Hello, ${user.name.split(" ")[0]}!` : "Loading..."}</Text>
+                <Text style={styles.subtitle}>Welcome back</Text>
+              </View>
+            </View>
+
+            {/* Enhanced Rating Section */}
+            <View style={styles.ratingCard}>
+              <View style={styles.ratingHeader}>
+                <Icon name="star-circle" size={20} color={ACCENT} />
+                <Text style={styles.ratingLabel}>Your Rating</Text>
+              </View>
+              <View style={styles.ratingContent}>
+                {renderStars(customerRating)}
+                <Text style={styles.ratingDescription}>
+                  {customerRating && !isNaN(customerRating)
+                    ? customerRating >= 4.5
+                      ? "Excellent passenger!"
+                      : customerRating >= 4.0
+                        ? "Great traveler!"
+                        : customerRating >= 3.5
+                          ? "Good passenger!"
+                          : "Keep improving!"
+                    : "No ratings yet"}
+                </Text>
               </View>
             </View>
           </View>
 
-          {/* Divider */}
-          <View style={styles.sectionDivider} />
-
           {/* Menu Items */}
-          <View style={styles.menuList}>
-            <DrawerItem icon="home" label="Home" onPress={() => navigation.navigate('Home')} />
-            <DrawerItem icon="car" label="Ride with us!" onPress={() => navigation.navigate('RequestScreen')} />
-            <DrawerItem icon="account" label="Profile" onPress={() => navigation.navigate('Profile')} />
-            <DrawerItem icon="navigation" label="Trips" onPress={() => navigation.navigate('TripHistory')} />
-            <DrawerItem icon="wrench" label="Services" onPress={() => navigation.navigate('services')} />
-            <DrawerItem icon="information" label="About" onPress={() => navigation.navigate('About')} />
-            <DrawerItem icon="phone" label="Support" onPress={() => navigation.navigate('Support')} />
+          <View style={styles.menuSection}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Home")}>
+              <View style={styles.menuIconContainer}>
+                <Icon name="home" size={20} color={ACCENT} />
+              </View>
+              <Text style={styles.menuText}>Home</Text>
+              <Icon name="chevron-right" size={16} color="#C4C4C4" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("RequestScreen")}>
+              <View style={styles.menuIconContainer}>
+                <Icon name="car" size={20} color="#666666" />
+              </View>
+              <Text style={styles.menuText}>Ride with us!</Text>
+              <Icon name="chevron-right" size={16} color="#C4C4C4" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Profile")}>
+              <View style={styles.menuIconContainer}>
+                <Icon name="account" size={20} color="#666666" />
+              </View>
+              <Text style={styles.menuText}>Profile</Text>
+              <Icon name="chevron-right" size={16} color="#C4C4C4" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("TripHistory")}>
+              <View style={styles.menuIconContainer}>
+                <Icon name="navigation" size={20} color="#666666" />
+              </View>
+              <Text style={styles.menuText}>Trips</Text>
+              <Icon name="chevron-right" size={16} color="#C4C4C4" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("services")}>
+              <View style={styles.menuIconContainer}>
+                <Icon name="wrench" size={20} color="#666666" />
+              </View>
+              <Text style={styles.menuText}>Services</Text>
+              <Icon name="chevron-right" size={16} color="#C4C4C4" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("About")}>
+              <View style={styles.menuIconContainer}>
+                <Icon name="information" size={20} color="#666666" />
+              </View>
+              <Text style={styles.menuText}>About</Text>
+              <Icon name="chevron-right" size={16} color="#C4C4C4" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Support")}>
+              <View style={styles.menuIconContainer}>
+                <Icon name="phone" size={20} color="#666666" />
+              </View>
+              <Text style={styles.menuText}>Support</Text>
+              <Icon name="chevron-right" size={16} color="#C4C4C4" />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={[styles.menuItem, styles.logoutItem]}
+              onPress={() => navigation.navigate("LogoutPage")}
+            >
+              <View style={styles.menuIconContainer}>
+                <Icon name="logout" size={20} color="#F43F5E" />
+              </View>
+              <Text style={[styles.menuText, styles.logoutText]}>Logout</Text>
+              <Icon name="chevron-right" size={16} color="#F43F5E" />
+            </TouchableOpacity>
           </View>
-
-          {/* Divider */}
-          <View style={styles.sectionDivider} />
-
-          {/* Logout */}
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={() => navigation.navigate('LogoutPage')}
-          >
-            <Icon name="logout" size={20} color={ACCENT} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
       </Animated.View>
     </>
-  );
-};
-
-const DrawerItem = ({ icon, label, onPress }) => (
-  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <Icon name={icon} size={22} color="#333" style={styles.menuIcon} />
-    <Text style={styles.menuText}>{label}</Text>
-  </TouchableOpacity>
-);
+  )
+}
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
     zIndex: 1,
   },
-  overlayInner: { flex: 1 },
+  overlayInner: {
+    flex: 1,
+  },
   drawer: {
     position: "absolute",
-    top: 0, bottom: 0, left: 0,
-    width: 300,
-    backgroundColor: '#f6fafd',
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 24,
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 280,
+    backgroundColor: "#fff",
     zIndex: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 12,
+    },
+    shadowOpacity: 0.58,
+    shadowRadius: 16.0,
     elevation: 24,
   },
   drawerContent: {
     flex: 1,
-    paddingTop: 36,
-    paddingHorizontal: 18,
-    justifyContent: 'space-between',
   },
-  profileSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
+  // Enhanced Welcome Section Styles
+  welcomeSection: {
+    backgroundColor: "#F8FAFC",
+    paddingTop: 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
   },
-  avatarWrapper: {
-    backgroundColor: '#e3f0fc',
-    borderRadius: 40,
-    padding: 3,
-    elevation: 2,
+  profileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#cfd8dc',
+  avatarContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  userInfo: {
+    marginLeft: 15,
+    flex: 1,
   },
   greeting: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#222',
+    fontWeight: "700",
+    color: "#1F2937",
     marginBottom: 2,
   },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
+  subtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
   },
-  ratingText: {
-    fontSize: 15,
+  // Enhanced Rating Section Styles
+  ratingCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  ratingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginLeft: 8,
+  },
+  ratingContent: {
+    alignItems: "center",
+  },
+  starsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  ratingValue: {
+    fontSize: 16,
+    fontWeight: "700",
     color: ACCENT,
-    marginLeft: 5,
-    fontWeight: '600',
+    marginLeft: 8,
   },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: '#e0e5ec',
-    marginVertical: 10,
-    borderRadius: 1,
+  ratingDescription: {
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
+    fontStyle: "italic",
   },
-  menuList: {
-    flexGrow: 1,
-    marginTop: 8,
+  // Menu Section Styles
+  menuSection: {
+    paddingTop: 10,
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    marginBottom: 2,
-    backgroundColor: 'transparent',
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
-  menuIcon: {
-    width: 28,
-    textAlign: 'center',
+  menuIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
   },
   menuText: {
-    fontSize: 17,
-    marginLeft: 18,
-    color: '#222',
-    fontWeight: '500',
-    letterSpacing: 0.2,
+    fontSize: 16,
+    color: "#374151",
+    fontWeight: "500",
+    flex: 1,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    backgroundColor: '#e3f0fc',
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    marginBottom: 24,
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginVertical: 10,
+    marginHorizontal: 20,
+  },
+  logoutItem: {
+    borderBottomWidth: 0,
   },
   logoutText: {
-    fontSize: 16,
-    marginLeft: 18,
-    color: ACCENT,
-    fontWeight: '700',
+    color: "#F43F5E",
   },
-});
+})
 
-export default CustomDrawer;
+export default CustomDrawer
